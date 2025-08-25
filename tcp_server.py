@@ -3,7 +3,7 @@ import asyncio
 import json 
 import struct 
 
-clients={} # dict để lưu trữ thông tin client
+clients_tcp={} # dict để lưu trữ thông tin client
 
 async def send_msg(writer, data: dict):
     raw=json.dumps(data).encode('utf-8') # mã hóa dict thành JSON và sau đó thành bytes
@@ -28,19 +28,19 @@ async def handle_client(reader,writer):
             # Login handling
             if t=='login':
                 username=msg['user']
-                clients[username]=writer # lưu thông tin client
+                clients_tcp[username]=writer # lưu thông tin client
                 await send_msg(writer,{'type':'login_ok'})
                 print(f"{username} logged in")
             # Chat broadcasting
             elif t=='chat':
                 text=msg['text']
-                for u,w in clients.items():
+                for u,w in clients_tcp.items():
                     if u != username:
                         await send_msg(w,{'type':'chat','from':username,'text':text})
             # File sharing
             elif t=='file_chunk':
                 # relay file chunk cho tat ca client khac 
-                for u,w in clients.items():
+                for u,w in clients_tcp.items():
                     if u != username:
                         await send_msg(w,msg)
             # Logout handling
@@ -50,8 +50,8 @@ async def handle_client(reader,writer):
     except Exception as e:
         print('Error:',e)
     finally:
-        if username and username in clients: # Kiểm tra xem người dùng có tồn tại trong clients không
-            clients.pop(username) # xóa client khỏi dict
+        if username and username in clients_tcp: # Kiểm tra xem người dùng có tồn tại trong clients_tcp không
+            clients_tcp.pop(username) # xóa client khỏi dict
         writer.close()
         await writer.wait_closed()
 

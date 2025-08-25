@@ -12,16 +12,16 @@ def udp_server():
         data,addr=sock.recvfrom(65536) # nhận dữ liệu từ client
         try:
             # header + payload 
-            header, payload=data.split(b'\n\n',1)
-            h=json.loads(header.decode('utf-8'))
+            header, payload=data.split(b'\n\n',1) # tách header và payload
+            h=json.loads(header.decode('utf-8')) # giải mã header
             username=h['from']
-            room=h['room']
+            room=h['room'] 
 
             # dang ky endpoint
             clients_udp[username]=addr
 
             # relay den cac client khac trong phong
-            for u,ep in clients_udp.items():
+            for u,ep in clients_udp.items(): # u: username, ep: (ip,port)
                 if u != username:
                     sock.sendto(data,ep)
         except Exception as e:
