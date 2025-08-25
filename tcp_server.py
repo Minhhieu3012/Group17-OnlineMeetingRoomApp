@@ -1,3 +1,4 @@
+# TCP đảm bảo dữ liệu không mất, nên dùng cho chat text, login/logout, truyền file nhỏ.
 import asyncio
 import json 
 import struct 
@@ -15,35 +16,41 @@ async def read_msg(reader):
     raw=await reader.readexactly(ln) # đọc dữ liệu
     return json.loads(raw.decode('utf-8')) # giải mã JSON và trả về dict
 
+# Set up and main loop
 async def handle_client(reader,writer):
     username=None 
     try:
         while True:
+            # Message processing 
             msg=await read_msg(reader) # đọc tin nhắn từ client
             t=msg.get('type')
 
+            # Login handling
             if t=='login':
                 username=msg['user']
                 clients[username]=writer # lưu thông tin client
                 await send_msg(writer,{'type':'login_ok'})
                 print(f"{username} logged in")
+            # Chat broadcasting
             elif t=='chat':
                 text=msg['text']
                 for u,w in clients.items():
                     if u != username:
                         await send_msg(w,{'type':'chat','from':username,'text':text})
+            # File sharing
             elif t=='file_chunk':
                 # relay file chunk cho tat ca client khac 
                 for u,w in clients.items():
                     if u != username:
                         await send_msg(w,msg)
-            
+            # Logout handling
             elif t=='logout':
                 break 
+    # Error handling và cleanup
     except Exception as e:
         print('Error:',e)
     finally:
-        if username and username in clients:
+        if username and username in clients: # Kiểm tra xem người dùng có tồn tại trong clients không
             clients.pop(username) # xóa client khỏi dict
         writer.close()
         await writer.wait_closed()
