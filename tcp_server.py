@@ -56,7 +56,7 @@ async def handle_client(reader,writer):
         await writer.wait_closed()
 
 async def main():
-    server = await asyncio.start_server(handle_client,'127.0.0.1',5000)
+    server = await asyncio.start_server(handle_client,'0.0.0.0',5000)
     print("Server started on port 5000")
     async with server:
         await server.serve_forever()
