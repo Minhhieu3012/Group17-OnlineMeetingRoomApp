@@ -23,3 +23,19 @@ def join_room(username:str, room:str) -> None:
     rooms[room].add(username)
     user_rooms[username]=room
     logger.info(f"{username} tham gia {room}")
+
+def leave_room(username:str) -> None:
+    if username not in user_rooms:
+        return 
+    current_room=user_rooms[username]
+    rooms[current_room].discard(username)
+
+    # Neu phong cu trong -> xoa
+    if not rooms[current_room]:
+        del rooms[current_room]
+
+    # Chuyen user ve 'lobby'
+    rooms['lobby'].add(username)
+    user_rooms[username]='lobby'
+    logger.info(f"{username} da roi {current_room} va quay lai lobby")
+
