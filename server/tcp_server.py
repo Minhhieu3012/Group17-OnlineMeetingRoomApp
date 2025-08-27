@@ -1,7 +1,8 @@
 import asyncio
 from protocol import send_msg, read_msg
 from tcp_state import clients, rooms, Client
-from routing import send_to_room, send_to_user, relay_message
+from routing import send_to_room, send_to_user
+from file_transfer import handle_file_meta, handle_file_chunk 
 
 async def handle_client(reader, writer):
     peer = writer.get_extra_info("peername")
@@ -56,20 +57,23 @@ async def handle_client(reader, writer):
                     await send_to_room(r, {
                         "type": "chat",
                         "from": username,
-                        "payload": {"text": p["text"]}
-                    })
+                        "payload": {"text": p["text"]}}
+                    )
 
             # Direct Message
             elif t == "dm":
                 await send_to_user(p["to"], {
                     "type": "dm",
                     "from": username,
-                    "payload": {"text": p["text"]}
-                })
+                    "payload": {"text": p["text"]}}
+                )
 
-            # File transfer
-            elif t in ["file_meta", "file_chunk"]:
-                await relay_message(username, msg)
+            # File transfer (gọi sang file_transfer.py)
+            elif t == "file_meta":
+                await handle_file_meta(username, msg, writer)
+
+            elif t == "file_chunk":
+                await handle_file_chunk(username, msg, writer)
 
             # UDP register
             elif t == "udp_register":
@@ -81,9 +85,11 @@ async def handle_client(reader, writer):
     except Exception as e:
         print(f"[TCP] Error {peer}:", e)
     finally:
-        if username: await logout(username)
+        if username: 
+            await logout(username)
         writer.close()
         await writer.wait_closed()
+
 
 async def logout(username):
     if username in clients:
@@ -93,11 +99,13 @@ async def logout(username):
         clients.pop(username, None)
         print(f"[TCP] {username} logged out")
 
+
 async def main():
     server = await asyncio.start_server(handle_client, "0.0.0.0", 5000)
     print("[TCP] Server on 5000")
     async with server:
         await server.serve_forever()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
