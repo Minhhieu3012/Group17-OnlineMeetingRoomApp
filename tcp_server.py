@@ -8,7 +8,7 @@ class Client:
     username: str # tên người dùng 
     writer: asyncio.StreamWriter # kết nối tcp để gửi dữ liệu
     room: Optional[str] = None # phòng chat hiện tại (có thể None)
-    udp_endpoints: dict = field(default_factory=lambda: {"audio": None, "video": None})
+    udp_endpoints: dict = field(default_factory=lambda: {"audio": None, "video": None}) # endpoint UDP để nhận media
 
 clients: Dict[str, Client] = {} # username -> Client object
 rooms: Dict[str, Set[str]] = {}  # room_name -> set of usernames    
