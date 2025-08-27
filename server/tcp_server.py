@@ -1,143 +1,120 @@
 import asyncio, json, struct
 from dataclasses import dataclass, field
-from typing import Dict, Set, Optional
+from typing import Dict, Optional
+import rooms   # import module quản lý phòng
 
-# -------- STATE (lưu trữ trạng thái) --------
 @dataclass
 class Client:
-    username: str # tên người dùng 
-    writer: asyncio.StreamWriter # kết nối tcp để gửi dữ liệu
-    room: Optional[str] = None # phòng chat hiện tại (có thể None)
-    udp_endpoints: dict = field(default_factory=lambda: {"audio": None, "video": None}) # endpoint UDP để nhận media
+    username: str
+    writer: asyncio.StreamWriter
+    room: Optional[str] = None
+    udp_endpoints: dict = field(default_factory=lambda: {"audio": None, "video": None})
 
-clients: Dict[str, Client] = {} # username -> Client object
-rooms: Dict[str, Set[str]] = {}  # room_name -> set of usernames    
+clients: Dict[str, Client] = {}
 
-# -------- PROTOCOL (cách giao tiếp) --------
+# ====== Helper ======
 async def send_msg(writer, obj: dict):
-    data = json.dumps(obj).encode() # chuyển dict thành json string, rồi thành bytes
-    writer.write(struct.pack("!I", len(data)) + data) # gửi [4 bytes big-endian độ dài][nội dung]
-    await writer.drain() # đảm bảo dữ liệu được gửi đi 
+    data = json.dumps(obj).encode()
+    writer.write(struct.pack("!I", len(data)) + data)
+    await writer.drain()
 
 async def read_msg(reader: asyncio.StreamReader):
-    header = await reader.readexactly(4) # đọc đúng 4 bytes
-    (ln,) = struct.unpack("!I", header) # unpack để lấy độ dài nội dung
-    data = await reader.readexactly(ln) # đọc đúng 'ln' bytes nội dung
-    return json.loads(data.decode()) # chuyển bytes thành json string, rồi thành dict
+    header = await reader.readexactly(4)
+    (ln,) = struct.unpack("!I", header)
+    data = await reader.readexactly(ln)
+    return json.loads(data.decode())
 
-# -------- HANDLER --------
+# ====== Handler ======
 async def handle_client(reader, writer):
-    peer = writer.get_extra_info("peername") # lấy IP:port của client, peername là tuple (ip,port)
+    peer = writer.get_extra_info("peername")
     username = None
-    try: 
-        while True: # lặp để xử lý nhiều tin nhắn từ client
+    try:
+        while True:
             msg = await read_msg(reader)
-            t = msg.get("type") # loại tin nhắn
-            p = msg.get("payload", {}) # nội dung tin nhắn
+            t = msg.get("type")
+            p = msg.get("payload", {})
 
-            #Login
             if t == "login":
                 username = p["username"]
-                if username in clients: # kiểm tra xem username đã tồn tại chưa
+                if username in clients:
                     await send_msg(writer, {"ok": False, "error": "Username already in use"})
-                    continue # yêu cầu client gửi lại username khác
-                clients[username] = Client(username=username, writer=writer) # lưu trữ thông tin client
-                await send_msg(writer, {"ok": True, "type":"login_ok"})
+                    continue
+                clients[username] = Client(username=username, writer=writer)
+                await send_msg(writer, {"ok": True, "type": "login_ok"})
                 print(f"[TCP] {username} logged in from {peer}")
 
-            #Logout
             elif t == "logout":
-                await logout(username) # gọi hàm logout
-                break # thoát vòng lặp, đóng kết nối
-            
-            #Create room
+                await logout(username)
+                break
+
             elif t == "create_room":
-                r = p["room"] # tên phòng
-                rooms.setdefault(r, set()) # tạo phòng nếu chưa tồn tại
+                r = p["room"]
+                rooms.create_room(r)
                 await send_msg(writer, {"ok": True, "room": r})
-           
-            #Join room
+
             elif t == "join_room":
                 r = p["room"]
-                rooms.setdefault(r, set()).add(username) # thêm user vào phòng
-                clients[username].room = r # lưu trạng thái user đang ở phòng nào
-                await broadcast(r, {"type":"system","payload":{"msg":f"{username} joined"}}, exclude=username) # thông báo cho mọi người trong phòng (trừ user này)
+                rooms.join_room(username, r, clients)
+                await broadcast(r, {"type":"system","payload":{"msg":f"{username} joined"}}, exclude=username)
 
-            #Leave room
             elif t == "leave_room":
-                r = clients[username].room # lấy phòng hiện tại của user
-                if r: rooms[r].discard(username) # xóa user khỏi phòng
-                clients[username].room = None
+                rooms.leave_room(username, clients)
 
-            #Chat (tin nhắn trong phòng)
             elif t == "chat":
-                r = clients[username].room
-                if r: # nếu user đang ở trong phòng
-                    await broadcast(r, {"type":"chat","from":username,"payload":{"text":p["text"]}}, exclude=None) # gửi tin nhắn cho mọi người trong phòng
+                r = rooms.get_user_room(username, clients)
+                if r:
+                    await broadcast(r, {"type":"chat","from":username,"payload":{"text":p["text"]}})
 
-            #Direct message
             elif t == "dm":
-                to = p["to"] # username của người nhận
-                if to in clients: # kiểm tra người nhận có online không
+                to = p["to"]
+                if to in clients:
                     await send_msg(clients[to].writer, {"type":"dm","from":username,"payload":{"text":p["text"]}})
                 else:
-                    await send_msg(writer, {"ok": False, "error":"User offline"})
+                    await send_msg(writer, {"ok": False, "error": "User offline"})
 
-            #File transfer
-            elif t == "file_meta": # gửi thông tin file trước khi gửi dữ liệu file
-                if p["size"] > 20_000_000: # giới hạn file 20MB
-                    await send_msg(writer, {"ok": False, "error":"File too large"})
-                else:
-                    await relay_room_or_to(username, msg) # chuyển tiếp metadata file
+            # File transfer
+            elif t in ("file_meta", "file_chunk"):
+                await relay_room_or_to(username, msg)
 
-            elif t == "file_chunk": # gửi dữ liệu file theo từng chunk
-                if len(p["data"]) > 1_500_000: # giới hạn chunk 1.5MB
-                    await send_msg(writer, {"ok": False, "error":"Chunk too large"})
-                else:
-                    await relay_room_or_to(username, msg) # chuyển tiếp chunk file
-
-            #UDP registration (đăng ký endpoint UDP để nhận media như voice/video call)
             elif t == "udp_register":
-                media, port = p["media"], p["port"] # media = "audio" hoặc "video"
-                ip = writer.get_extra_info("peername")[0] # lấy IP của client
-                clients[username].udp_endpoints[media] = (ip, port) # lưu endpoint UDP
+                media, port = p["media"], p["port"]
+                ip = writer.get_extra_info("peername")[0]
+                clients[username].udp_endpoints[media] = (ip, port)
                 await send_msg(writer, {"ok": True, "registered": media})
 
     except Exception as e:
-        print(f"[TCP] Error {peer}:", e)
+        print(f"[TCP] Error {peer}: {e}")
     finally:
-        if username: await logout(username) # đảm bảo logout khi kết nối đóng
+        if username: await logout(username)
         writer.close()
         await writer.wait_closed()
 
-# -------- HELPERS --------
+# ====== Helpers ======
 async def logout(username):
     if username in clients:
-        room = clients[username].room # lấy phòng hiện tại của user
-        if room and username in rooms.get(room, set()):
-            rooms[room].discard(username) # xóa user khỏi phòng
-        clients.pop(username, None) # xóa user khỏi danh sách clients
+        rooms.leave_room(username, clients)
+        clients.pop(username, None)
         print(f"[TCP] {username} logged out")
 
 async def broadcast(room, obj, exclude=None):
-    for u in rooms.get(room, set()): # lặp qua tất cả user trong phòng
-        if u == exclude: continue # bỏ qua user cần loại trừ
-        await send_msg(clients[u].writer, obj) # gửi tin nhắn đến user
+    for u in rooms.rooms.get(room, set()):
+        if u == exclude: continue
+        await send_msg(clients[u].writer, obj)
 
 async def relay_room_or_to(sender, msg):
-    to = msg.get("to") # Kiểm tra có gửi tin nhắn riêng không
-    if to and to in clients: # gửi tin nhắn riêng
+    to = msg.get("to")
+    if to and to in clients:
         await send_msg(clients[to].writer, msg)
-    else: # gửi tin nhắn trong phòng
-        r = clients[sender].room
+    else:
+        r = rooms.get_user_room(sender, clients)
         if r: await broadcast(r, msg, exclude=sender)
 
-# -------- MAIN --------
+# ====== Main ======
 async def main():
     server = await asyncio.start_server(handle_client, "0.0.0.0", 5000)
     print("[TCP] Server on 5000")
-    async with server: # đóng server khi thoát khỏi block
-        await server.serve_forever() # chạy server mãi mãi
+    async with server:
+        await server.serve_forever()
 
 if __name__ == "__main__":
     asyncio.run(main())

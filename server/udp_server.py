@@ -22,7 +22,7 @@ class ClientInfo:
 
 # Global state management
 class UDPServer:
-    def __init__(self, host="0.0.0.0", port=5000, rate_limit=100, timeout=120): # rate_limit: gói/giây, timeout: giây
+    def __init__(self, host="0.0.0.0", port=6000, rate_limit=100, timeout=120): # rate_limit: gói/giây, timeout: giây
         # Cấu hình network
         self.host = host # Địa chỉ bind
         self.port = port
@@ -82,8 +82,8 @@ class UDPServer:
             header = json.loads(header_bytes.decode()) # Decode bytes to str and parse JSON
 
             # step4: Extract required fields
-            username, room = header.get("from"), # sender username
-            header.get("room", "default") # target room (optional, default="default")
+            username = header.get("from") # sender username
+            room = header.get("room", "default") # target room (default if missing)
 
             if not username: # Anonymous packets not allowed
                 return # Silent drop 
@@ -97,7 +97,7 @@ class UDPServer:
                 addr=addr, # update client udp endpoint
                 room=room, # update current room
                 last_seen=time.time(), # update activity timestamp
-                packet_count=self.stats["rx"] # update packet counter
+                packet_count=self.clients.get(username, ClientInfo(addr, room, time.time())).packet_count + 1
             )
 
             # step7: Add client to room

@@ -1,41 +1,35 @@
-from collections import defaultdict
-import logging
+from typing import Dict, Set, Optional
 
-logger=logging.getLongger(__name__)
+# Danh sách phòng: room_name -> set(username)
+rooms: Dict[str, Set[str]] = {}
 
-# lưu trữ các phòng 
-rooms=defaultdict(set) # room_name -> set of usernames
-user_rooms={} # username -> room_name
+def create_room(room: str):
+    """Tạo phòng mới nếu chưa tồn tại"""
+    rooms.setdefault(room, set())
 
-def join_room(username:str, room:str) -> None:
-    # Neu user dang o phong khac -> roi khoi 
-    if username in user_rooms:
-        old_room=user_rooms[username]
-        if old_room==room:
-            rooms[old_room].discard(username)
-            logger.info(f"{username} roi khoi {old_room}")
-
-            # Neu phong cu trong -> xoa
-            if not rooms[old_room]:
-                del rooms[old_room]
-    
-    # Them user vao phong moi
+def join_room(username: str, room: str, clients: Dict):
+    """Thêm user vào phòng"""
+    create_room(room)
     rooms[room].add(username)
-    user_rooms[username]=room
-    logger.info(f"{username} tham gia {room}")
+    clients[username].room = room
 
-def leave_room(username:str) -> None:
-    if username not in user_rooms:
-        return 
-    current_room=user_rooms[username]
-    rooms[current_room].discard(username)
+def leave_room(username: str, clients: Dict):
+    """User rời khỏi phòng hiện tại"""
+    room = clients[username].room
+    if room and room in rooms:
+        rooms[room].discard(username)
+        if not rooms[room]: # nếu phòng trống thì xóa
+            del rooms[room]
+    clients[username].room = None
 
-    # Neu phong cu trong -> xoa
-    if not rooms[current_room]:
-        del rooms[current_room]
+def get_user_room(username: str, clients: Dict) -> Optional[str]:
+    """Lấy phòng hiện tại của user"""
+    return clients[username].room if username in clients else None
 
-    # Chuyen user ve 'lobby'
-    rooms['lobby'].add(username)
-    user_rooms[username]='lobby'
-    logger.info(f"{username} da roi {current_room} va quay lai lobby")
+def list_rooms():
+    """Danh sách tất cả phòng"""
+    return list(rooms.keys())
 
+def list_users(room: str):
+    """Danh sách user trong một phòng"""
+    return list(rooms.get(room, []))
