@@ -3,12 +3,8 @@ import base64
 import time
 from typing import Dict
 
-from routing import relay_room_or_to
-from protocol import send_msg, read_msg
-from tcp_state import clients, rooms, Client
-from routing import send_to_room, send_to_user
-from file_transfer import handle_file_meta, handle_file_chunk
-
+from routing import relay_message
+from protocol import send_msg
 
 # Cấu hình giới hạn
 MAX_FILE_SIZE = 20 * 1024 * 1024    # 20MB
@@ -38,7 +34,7 @@ async def handle_file_meta(username: str, msg: dict, writer):
         return False
 
     # Nếu hợp lệ → relay metadata tới client khác
-    await relay_room_or_to(username, msg)
+    await relay_message(username, msg)
     return True
 
 
@@ -61,7 +57,7 @@ async def handle_file_chunk(username: str, msg: dict, writer):
         return False
 
     # Nếu hợp lệ → relay chunk tới client khác
-    await relay_room_or_to(username, msg)
+    await relay_message(username, msg)
     return True
 
 
