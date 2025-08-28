@@ -1,4 +1,3 @@
-# tcp_server.py
 import asyncio, base64
 from protocol import send_msg, read_msg, send_msg_secure, read_msg_secure, read_any, send_any
 from tcp_state import clients, rooms, Client

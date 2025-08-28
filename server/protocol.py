@@ -1,4 +1,3 @@
-# protocol.py
 import json, struct, asyncio
 from typing import Optional
 from utils import aes_encrypt, aes_decrypt, CRYPTO_AVAILABLE

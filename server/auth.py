@@ -8,16 +8,8 @@ from utils import (
     generate_session_key
 )
 
-USERS_DB = Path(__file__).with_name("users_db.json")  # file JSON cạnh auth.py
+USERS_DB = Path(__file__).with_name("users_db.json") 
 
-# -----------------------------
-# Lưu trữ users (file JSON)
-# Cấu trúc: {
-#   "users": {
-#     "alice": {"salt": "...", "hash": "...", "created_at": 1690000000}
-#   }
-# }
-# -----------------------------
 class UserStore:
     def __init__(self, path: Path = USERS_DB):
         self.path = path
