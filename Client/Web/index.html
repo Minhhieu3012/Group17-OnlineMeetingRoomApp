@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>All‑in‑One Meeting — Web</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>All‑in‑One Meeting — Web</h1>
+    </header>
+
+    <section class="login">
+      <input id="host" placeholder="ws://127.0.0.1:8765" value="ws://127.0.0.1:8765"/>
+      <input id="user" placeholder="username" />
+      <input id="gmail" placeholder="gmail" />
+      <button id="btnConnect">Connect & Login</button>
+    </section>
+
+    <main class="main">
+      <aside>
+        <div class="panel">
+          <div class="panel-title">Rooms</div>
+          <ul id="rooms"></ul>
+          <button id="btnListRooms">Refresh</button>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Create Room</div>
+          <input id="roomName" placeholder="Room name" />
+          <input id="roomPwd" placeholder="Password (optional)" />
+          <button id="btnCreate">Create</button>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Join by Code</div>
+          <input id="roomCode" placeholder="e.g. 8F2A" />
+          <input id="joinPwd" placeholder="Password (optional)" />
+          <button id="btnJoinCode">Join</button>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Users</div>
+          <ul id="users"></ul>
+        </div>
+      </aside>
+
+      <section class="chat">
+        <div id="log" class="log"></div>
+        <div class="composer">
+          <input id="msg" placeholder="Type a message..." />
+          <button id="btnSend">Send</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
