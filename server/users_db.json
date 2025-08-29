@@ -1,0 +1,9 @@
+{
+  "users": {
+    "test": {
+      "salt": "f90d815e0a3e92cb18f718ad45b47989",
+      "hash": "fe0d97a347e711086dd9360e287c203dce1723a46465dd1f67224b50ab4759c7",
+      "created_at": 1756311899
+    }
+  }
+}
