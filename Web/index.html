@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HPH-meet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Login Screen -->
+    <section id="screen-login" class="screen active">
+      <div class="card">
+        <h1>HPH-meet</h1>
+        <p class="muted">Đăng nhập nhanh (không mật khẩu)</p>
+        <form id="login-form">
+          <label for="username">Tên đăng nhập</label>
+          <input id="username" placeholder="a-z, 0-9, _" required pattern="^[a-z0-9_]{1,24}$" />
+          <label for="email">Gmail</label>
+          <input id="email" placeholder="yourname@gmail.com" required />
+          <button type="submit">Tiếp tục</button>
+        </form>
+        <p class="hint">Tên hợp lệ: chỉ chữ thường, số và dấu gạch dưới. Email phải là <b>@gmail.com</b>.</p>
+        <div id="login-error" class="error hidden"></div>
+      </div>
+    </section>
+
+    <!-- Lobby / Create or Join -->
+    <section id="screen-lobby" class="screen">
+      <div class="topbar">
+        <div class="brand">HPH-meet</div>
+        <div class="user" id="me"></div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <h2>Tạo phòng</h2>
+          <form id="create-room-form">
+            <input id="create-room-input" placeholder="Tên phòng" />
+            <button type="submit">Tạo</button>
+          </form>
+          <div id="create-room-error" class="error hidden"></div>
+        </div>
+        <div class="card">
+          <h2>Phòng đang có</h2>
+          <ul id="room-list" class="list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Room -->
+    <section id="screen-room" class="screen">
+      <div class="topbar">
+        <div class="brand">HPH-meet</div>
+        <div class="room-actions">
+          <span id="room-name" class="badge"></span>
+          <button id="leave-room">Rời phòng</button>
+        </div>
+        <div class="user" id="me2"></div>
+      </div>
+
+      <div class="layout-room">
+        <aside class="sidebar">
+          <h3>Thành viên</h3>
+          <ul id="user-list" class="list"></ul>
+          <h3>Media</h3>
+          <div class="media-controls">
+            <button id="toggle-mic" data-on="false">🎤 Mic OFF</button>
+            <button id="toggle-cam" data-on="false">📷 Cam OFF</button>
+          </div>
+          <div class="video-wrap">
+            <video id="video-preview" autoplay playsinline muted></video>
+            <div class="muted">Khung hiển thị video (placeholder)</div>
+          </div>
+        </aside>
+
+        <main class="chat">
+          <div id="notice" class="notice hidden"></div>
+          <div id="messages" class="messages"></div>
+          <form id="chat-form" class="chatbox">
+            <input id="chat-input" placeholder="Nhắn gì đó..." autocomplete="off" />
+            <button type="submit">Gửi</button>
+          </form>
+        </main>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // --- Basic state ---
+    const S = {
+      ws: null,
+      me: null,
+      room: null,
+      server: (localStorage.getItem('ws_url') || (location.origin.replace(/^http/, 'ws') + '/ws-app')),
+    };
+
+    // --- Helpers ---
+    const $ = (sel) => document.querySelector(sel);
+    const el = (tag, attrs={}, children=[])=>{
+      const n = document.createElement(tag);
+      for (const [k,v] of Object.entries(attrs)) {
+        if (k === 'class') n.className = v;
+        else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+        else n.setAttribute(k,v);
+      }
+      for (const c of children) n.append(c);
+      return n;
+    };
+    const show = (id)=>{
+      document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+      $(id).classList.add('active');
+    };
+    const notify = (text)=>{
+      const n = $('#notice');
+      n.textContent = text;
+      n.classList.remove('hidden');
+      setTimeout(()=>n.classList.add('hidden'), 2000);
+    };
+    const addMessage = (who, text)=>{
+      const box = $('#messages');
+      const row = el('div', {class:'msg'}, [el('b',{},[who+': ']), document.createTextNode(text)]);
+      box.append(row);
+      box.scrollTop = box.scrollHeight;
+    };
+
+    // --- WebSocket connect ---
+    function openWS(){
+      S.ws = new WebSocket(S.server);
+      S.ws.onopen = ()=>{
+        const u = $('#username').value.trim();
+        const e = $('#email').value.trim();
+        S.ws.send(JSON.stringify({type:'login', username:u, email:e}));
+      };
+      S.ws.onmessage = (ev)=>{
+        const msg = JSON.parse(ev.data);
+        if (msg.ok === false) {
+          if (msg.type === 'login') {
+            $('#login-error').textContent = msg.error;
+            $('#login-error').classList.remove('hidden');
+            show('#screen-login');
+          }
+          return;
+        }
+        switch(msg.type){
+          case 'login':
+            S.me = { user_id: msg.user_id, username: msg.username, email: msg.email };
+            $('#me').textContent = `${S.me.username} (${S.me.email})`;
+            $('#me2').textContent = `${S.me.username} (${S.me.email})`;
+            renderRooms(msg.rooms || []);
+            show('#screen-lobby');
+            break;
+          case 'room_list':
+            renderRooms(msg.rooms || []);
+            break;
+          case 'create_room':
+            renderRooms(msg.rooms || []);
+            break;
+          case 'join_room':
+            S.room = msg.room;
+            $('#room-name').textContent = S.room;
+            renderUsers(msg.users || []);
+            $('#messages').innerHTML = '';
+            show('#screen-room');
+            break;
+          case 'user_list':
+            renderUsers(msg.users || []);
+            break;
+          case 'user_joined':
+            notify(`${msg.user} đã vào phòng`);
+            requestUserList();
+            break;
+          case 'user_left':
+            notify(`${msg.user} đã rời phòng`);
+            requestUserList();
+            break;
+          case 'chat':
+            addMessage(msg.from, msg.message);
+            break;
+          default:
+            // ignore other server messages not in Huy's scope
+            break;
+        }
+      };
+      S.ws.onclose = ()=>{
+        alert('Mất kết nối tới client gateway.');
+        show('#screen-login');
+      };
+    }
+
+    function renderRooms(rooms){
+      const ul = $('#room-list'); ul.innerHTML = '';
+      rooms.forEach(r=>{
+        const li = el('li', {}, [
+          el('span', {class:'pill'}, [document.createTextNode(`${r.room} (${r.count})`)]),
+          el('button', {onclick: ()=>joinRoom(r.room)}, ['Tham gia'])
+        ]);
+        ul.append(li);
+      });
+    }
+    function renderUsers(users){
+      const ul = $('#user-list'); ul.innerHTML = '';
+      users.forEach(u => {
+        const li = el('li', {}, [document.createTextNode(u.username)]);
+        ul.append(li);
+      });
+    }
+    function requestUserList(){
+      if (S.ws) S.ws.send(JSON.stringify({type:'user_list'}));
+    }
+    function joinRoom(name){
+      S.ws.send(JSON.stringify({type:'join_room', room:name}));
+    }
+
+    // --- Events ---
+    $('#login-form').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const u = $('#username').value.trim();
+      const eaddr = $('#email').value.trim();
+      const unameOK = /^[a-z0-9_]{1,24}$/.test(u);
+      const emailOK = /^[A-Za-z0-9._%+-]+@gmail\.com$/.test(eaddr);
+      if (!unameOK){
+        $('#login-error').textContent = 'Tên đăng nhập chỉ gồm a-z, 0-9, _ (tối đa 24).';
+        $('#login-error').classList.remove('hidden');
+        return;
+      }
+      if (!emailOK){
+        $('#login-error').textContent = 'Chỉ chấp nhận địa chỉ @gmail.com hợp lệ.';
+        $('#login-error').classList.remove('hidden');
+        return;
+      }
+      $('#login-error').classList.add('hidden');
+      openWS();
+    });
+
+    $('#create-room-form').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const r = $('#create-room-input').value.trim();
+      if (!r) return;
+      S.ws.send(JSON.stringify({type:'create_room', room:r}));
+      $('#create-room-input').value='';
+      setTimeout(()=>S.ws.send(JSON.stringify({type:'room_list'})), 200);
+    });
+
+    $('#leave-room').addEventListener('click', ()=>{
+      S.ws.send(JSON.stringify({type:'leave_room'}));
+      S.room = null;
+      S.ws.send(JSON.stringify({type:'room_list'}));
+      show('#screen-lobby');
+    });
+
+    $('#chat-form').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const t = $('#chat-input').value;
+      if (!t) return;
+      S.ws.send(JSON.stringify({type:'chat', message: t}));
+      $('#chat-input').value='';
+    });
+
+    // Mic/Cam toggles (UI only; preview camera if ON)
+    async function setCam(on){
+      const btn = $('#toggle-cam');
+      btn.dataset.on = on ? 'true' : 'false';
+      btn.textContent = on ? '📷 Cam ON' : '📷 Cam OFF';
+      if (on){
+        try{
+          const stream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+          $('#video-preview').srcObject = stream;
+        }catch(err){
+          alert('Không mở được camera: ' + err.message);
+        }
+      }else{
+        const v = $('#video-preview');
+        if (v.srcObject){
+          v.srcObject.getTracks().forEach(t=>t.stop());
+          v.srcObject = null;
+        }
+      }
+    }
+    $('#toggle-cam').addEventListener('click', ()=>{
+      const on = ($('#toggle-cam').dataset.on === 'true');
+      setCam(!on);
+    });
+    $('#toggle-mic').addEventListener('click', ()=>{
+      const btn = $('#toggle-mic');
+      const on = (btn.dataset.on === 'true');
+      btn.dataset.on = (!on).toString();
+      btn.textContent = on ? '🎤 Mic OFF' : '🎤 Mic ON';
+      // NOTE: mic streaming is not implemented in this scope
+    });
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
