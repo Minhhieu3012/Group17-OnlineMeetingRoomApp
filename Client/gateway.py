@@ -76,16 +76,22 @@ async def ws_app(request: web.Request):
     task_r = asyncio.create_task(tcp_reader_to_ws(reader, ws))
     task_w = asyncio.create_task(ws_to_tcp_writer(ws, writer))
 
-    # wait until ws closes
-    await ws.wait_closed()
-    for t in (task_r, task_w):
-        t.cancel()
+    # wait until tasks complete or error occurs
     try:
-        writer.close()
-        await writer.wait_closed()
+        await asyncio.gather(task_r, task_w)
     except Exception:
         pass
-    logging.info("WS disconnected.")
+    finally:
+        for t in (task_r, task_w):
+            if not t.done():
+                t.cancel()
+        try:
+            writer.close()
+            await writer.wait_closed()
+        except Exception:
+            pass
+        logging.info("WS disconnected.")
+    
     return ws
 
 async def index(request):

@@ -93,7 +93,7 @@ async def handle_client(reader, writer):
 
             # ===== FILE TRANSFER =====
             elif t == "file_meta":
-                await handle_file_meta(username, msg, writer)   # bản thân tin này có thể secure/không tuỳ bạn
+                await handle_file_meta(username, msg, writer)
             elif t == "file_chunk":
                 await handle_file_chunk(username, msg, writer)
 
@@ -131,8 +131,8 @@ async def main():
     # server = await asyncio.start_server(handle_client, "0.0.0.0", 5000, ssl=ssl_ctx)
 
     # Không dùng TLS:
-    server = await asyncio.start_server(handle_client, "0.0.0.0", 5000)
-    print("[TCP] Server on 5000")
+    server = await asyncio.start_server(handle_client, "0.0.0.0", 8000)
+    print("[TCP] Server on 8000")
     async with server:
         await server.serve_forever()
 
