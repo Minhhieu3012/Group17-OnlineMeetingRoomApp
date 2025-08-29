@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HPH Meeting · Sảnh</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-height:100vh; display:flex; align-items:center; justify-content:center;
+      background:linear-gradient(135deg,#667eea 0%, #764ba2 100%); color:#333;
+    }
+    .lobby-card{
+      width:100%; max-width:960px; background:rgba(255,255,255,.95);
+      border-radius:20px; backdrop-filter:blur(10px); padding:2rem;
+      box-shadow:0 20px 40px rgba(0,0,0,.15); animation:slideIn .5s ease-out;
+    }
+    @keyframes slideIn{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .logo{
+      text-align:center; font-weight:900; font-size:2rem; letter-spacing:.5px;
+      background:linear-gradient(90deg,#667eea,#764ba2); -webkit-background-clip:text; background-clip:text; color:transparent;
+    }
+    .subtitle{ text-align:center; color:#666; margin-top:.25rem }
+    .bar{display:flex; gap:1rem; align-items:center; justify-content:center; margin:1rem 0 1.5rem}
+    .me{background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; padding:.35rem .75rem; border-radius:999px; font-weight:600}
+    .btn-ghost{border:1px solid #667eea; color:#4c51bf; background:#fff; padding:.45rem .8rem; border-radius:10px; cursor:pointer}
+    .btn-ghost:hover{filter:brightness(.97)}
+
+    .grid{display:grid; grid-template-columns:1.1fr .9fr; gap:1.25rem}
+    .panel{background:#fafbfc; border:2px solid #e1e5e9; border-radius:16px; padding:1.25rem}
+    h3{margin-bottom:.75rem; color:#4c51bf}
+
+    .form{display:flex; gap:.6rem}
+    .input{
+      flex:1; padding:.8rem 1rem; border:2px solid #e1e5e9; border-radius:12px; background:#fff; transition:.25s
+    }
+    .input:focus{outline:none; border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,.12); transform:translateY(-2px)}
+    .btn-primary{
+      padding:.85rem 1rem; border:none; border-radius:12px; cursor:pointer; font-weight:700; color:#fff;
+      background:linear-gradient(135deg,#667eea 0%, #764ba2 100%); transition:.25s
+    }
+    .btn-primary:hover{transform:translateY(-2px); box-shadow:0 10px 20px rgba(102,126,234,.28)}
+    .error{display:none; margin-top:.75rem; background:#fee; border:1px solid #fcc; color:#c33; padding:.75rem 1rem; border-radius:12px}
+
+    .rooms{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.6rem; max-height:360px; overflow:auto}
+    .room-row{
+      display:flex; align-items:center; justify-content:space-between; gap:.75rem;
+      background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:.75rem 1rem
+    }
+    .pill{background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3; border-radius:999px; padding:.25rem .6rem; font-weight:600}
+    .status{ text-align:center; margin-top:1rem; color:#666; font-size:.95rem }
+  </style>
+</head>
+<body>
+  <div class="lobby-card">
+    <div class="logo" aria-hidden="true">HPH Meeting</div>
+    <div class="subtitle">Sảnh — Tạo phòng mới hoặc tham gia phòng có sẵn</div>
+
+    <div class="bar">
+      <span class="me" id="me">Đang đăng nhập…</span>
+      <button class="btn-ghost" id="switchAcc">Đổi tài khoản</button>
+    </div>
+
+    <div class="grid">
+      <!-- Tạo phòng -->
+      <section class="panel">
+        <h3>Tạo phòng mới</h3>
+        <form id="create-room-form" class="form" autocomplete="off">
+          <input id="create-room-input" class="input" placeholder="Nhập tên phòng" />
+          <button class="btn-primary" type="submit" id="createBtn">Tạo & vào</button>
+        </form>
+        <div id="createErr" class="error" role="alert"></div>
+      </section>
+
+      <!-- Danh sách phòng -->
+      <section class="panel">
+        <h3>Phòng đang có</h3>
+        <ul id="room-list" class="rooms" aria-live="polite"></ul>
+      </section>
+    </div>
+
+    <div class="status" id="status">Đang kết nối tới gateway…</div>
+  </div>
+
+  <script type="module">
+    import { ensureCredsOrRedirect, connectAndLogin, setRoom } from './common.js';
+
+    // --- DOM helpers ---
+    const $ = (s)=>document.querySelector(s);
+    const statusEl = $('#status');
+    const createErr = $('#createErr');
+    function setStatus(t){ statusEl.textContent = t; }
+    function showErr(t){ createErr.textContent = t; createErr.style.display='block'; }
+    function hideErr(){ createErr.style.display='none'; }
+
+    // --- State ---
+    const creds = ensureCredsOrRedirect(); if(!creds) throw new Error('No creds');
+    $('#me').textContent = `${creds.username} (${creds.email})`;
+
+    let ws = null;
+    let pendingRoom = null;
+
+    // --- WS handlers ---
+    function onLoginOk(msg){
+      setStatus('Đã kết nối. Sẵn sàng.');
+      // xin danh sách phòng
+      ws && ws.send(JSON.stringify({ type:'room_list' }));
+    }
+
+    function renderRoomList(rooms = []){
+      const ul = $('#room-list');
+      ul.innerHTML = '';
+      if(!rooms.length){
+        ul.innerHTML = '<li class="room-row"><em>Chưa có phòng nào</em></li>';
+        return;
+      }
+      rooms.forEach((r)=>{
+        const li = document.createElement('li');
+        li.className = 'room-row';
+        li.innerHTML = `
+          <div><strong>${r.room}</strong> <span class="pill">${r.count} người</span></div>
+          <button class="btn-ghost">Tham gia</button>
+        `;
+        li.querySelector('button').addEventListener('click', ()=> joinAndGo(r.room));
+        ul.append(li);
+      });
+    }
+
+    function onMessage(msg){
+      switch(msg.type){
+        case 'room_list':
+          renderRoomList(msg.rooms || []);
+          break;
+        case 'create_room':
+          // một số server gửi event này; để đó và chờ join ack
+          break;
+        case 'join_room':
+          if(msg.room){
+            setRoom(msg.room);
+            location.href = 'room.html';
+          }
+          break;
+        case 'user_joined':
+        case 'user_left':
+          // refresh list nhẹ
+          ws && ws.send(JSON.stringify({ type:'room_list' }));
+          break;
+      }
+    }
+
+    function onClose(){
+      setStatus('Mất kết nối. Đang chờ reconnect…');
+    }
+
+    ws = connectAndLogin(creds, { onLoginOk, onMessage, onClose });
+
+    // --- Actions ---
+    function joinAndGo(roomName){
+      if(!roomName) return;
+      hideErr();
+      pendingRoom = roomName;
+      ws && ws.send(JSON.stringify({ type:'join_room', room: roomName }));
+      // Fallback: nếu server không trả join_room kịp, chủ động chuyển sau 400ms
+      setTimeout(()=>{ if(pendingRoom){ setRoom(pendingRoom); location.href='room.html'; } }, 400);
+    }
+
+    $('#create-room-form').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const r = $('#create-room-input').value.trim();
+      if(!r) return showErr('Vui lòng nhập tên phòng');
+      hideErr();
+      // tạo rồi vào thẳng
+      ws && ws.send(JSON.stringify({ type:'create_room', room: r }));
+      joinAndGo(r);
+      $('#create-room-input').value = '';
+    });
+
+    $('#switchAcc').addEventListener('click', ()=>{
+      sessionStorage.clear();
+      location.href = 'login.html';
+    });
+  </script>
+</body>
+</html>

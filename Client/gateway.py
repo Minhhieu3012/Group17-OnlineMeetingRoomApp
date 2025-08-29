@@ -1,113 +1,165 @@
-#!/usr/bin/env python3
-"""
-HPH-meet Client Gateway (Python, aiohttp)
-- Serves the Web UI on http://127.0.0.1:8080
-- Web UI connects via ws://127.0.0.1:8080/ws-app to this gateway
-- Gateway connects to the main server using TCP JSON lines (so "client connects to server by Python")
-- Forwards JSON messages both ways (browser <-> gateway <-> server TCP)
-"""
-import os, asyncio, json, pathlib, logging
+
+import os
+import asyncio
+import json
+import logging
+import webbrowser
+from pathlib import Path
 from aiohttp import web
 
-# --- Config ---
+# -------------------- Config qua ENV --------------------
 SERVER_HOST = os.environ.get("SERVER_HOST", "127.0.0.1")
 SERVER_PORT = int(os.environ.get("SERVER_PORT", "5000"))
 HTTP_HOST   = os.environ.get("HTTP_HOST", "127.0.0.1")
 HTTP_PORT   = int(os.environ.get("HTTP_PORT", "8080"))
+AUTO_OPEN   = os.environ.get("AUTO_OPEN", "1").lower() not in ("0", "false", "no")
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent  # project root (contains 'web')
-WEB_DIR = ROOT / "web"
+# Thư mục tĩnh: ưu tiên Client/static (file này ở Client/gateway.py)
+ROOT_DIR = Path(__file__).resolve().parent
+WEB_DIR  = ROOT_DIR / "static"
+# Fallback nhẹ nếu đổi tên thư mục web
+if not WEB_DIR.exists():
+    for cand in (ROOT_DIR / "Web", ROOT_DIR / "web", ROOT_DIR.parent / "web", ROOT_DIR.parent / "Web"):
+        if cand.exists():
+            WEB_DIR = cand
+            break
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 
-async def tcp_reader_to_ws(reader: asyncio.StreamReader, ws: web.WebSocketResponse):
-    """Pump: server TCP -> browser WS"""
+# -------------------- Bridge Pumps --------------------
+async def tcp_reader_to_ws(reader: asyncio.StreamReader, ws: web.WebSocketResponse) -> None:
+    """
+    Nhận dữ liệu từ TCP server (JSON mỗi dòng) và gửi sang browser WS dưới dạng JSON.
+    """
     try:
         while True:
             line = await reader.readline()
             if not line:
-                logging.info("Upstream TCP closed.")
+                logging.info("Upstream TCP closed connection.")
                 await ws.close()
                 break
-            try:
-                obj = json.loads(line.decode("utf-8").strip())
-            except Exception as e:
-                logging.warning(f"Parse from TCP failed: {e}")
+
+            text = line.decode("utf-8", errors="ignore").strip()
+            if not text:
                 continue
-            await ws.send_json(obj)
+
+            try:
+                obj = json.loads(text)
+                await ws.send_json(obj)
+            except Exception:
+                # Nếu server gửi không phải JSON hợp lệ, chuyển thành text để debug
+                await ws.send_str(text)
     except asyncio.CancelledError:
         pass
     except Exception as e:
         logging.warning(f"Reader pump error: {e}")
 
-async def ws_to_tcp_writer(ws: web.WebSocketResponse, writer: asyncio.StreamWriter):
-    """Pump: browser WS -> server TCP"""
+
+async def ws_to_tcp_writer(ws: web.WebSocketResponse, writer: asyncio.StreamWriter) -> None:
+    """
+    Nhận dữ liệu TEXT từ browser WS (dự kiến là JSON) và đẩy vào TCP (thêm '\n').
+    """
     try:
         async for msg in ws:
             if msg.type == web.WSMsgType.TEXT:
+                data = msg.data.strip()
+                # Ưu tiên giữ nguyên JSON hợp lệ; nếu không hợp lệ, bọc lại để TCP server vẫn đọc được
                 try:
-                    obj = json.loads(msg.data)
+                    _ = json.loads(data)
+                    payload = (data + "\n").encode("utf-8")
                 except Exception:
-                    # ignore non-JSON text
-                    continue
-                data = (json.dumps(obj, ensure_ascii=False) + "\n").encode("utf-8")
-                writer.write(data)
+                    payload = (json.dumps({"type": "raw", "data": data}, ensure_ascii=False) + "\n").encode("utf-8")
+
+                writer.write(payload)
                 await writer.drain()
+
+            elif msg.type == web.WSMsgType.BINARY:
+                # Không xử lý binary trong scope hiện tại
+                continue
+
             elif msg.type == web.WSMsgType.ERROR:
                 break
+
     except asyncio.CancelledError:
         pass
     except Exception as e:
         logging.warning(f"Writer pump error: {e}")
 
-async def ws_app(request: web.Request):
-    # Open TCP upstream per browser connection
+# -------------------- HTTP/WS Handlers --------------------
+async def ws_app(request: web.Request) -> web.StreamResponse:
+    """
+    Mỗi kết nối WS từ trình duyệt sẽ mở một kết nối TCP tới server.
+    """
     logging.info(f"WS connect from {request.remote}")
     try:
         reader, writer = await asyncio.open_connection(SERVER_HOST, SERVER_PORT)
     except Exception as e:
-        logging.error(f"Cannot connect upstream TCP {SERVER_HOST}:{SERVER_PORT}: {e}")
-        return web.Response(text="Upstream unavailable", status=502)
+        logging.error(f"Cannot connect to TCP {SERVER_HOST}:{SERVER_PORT}: {e}")
+        return web.Response(text="Upstream TCP unavailable", status=502)
 
     ws = web.WebSocketResponse(heartbeat=20.0)
     await ws.prepare(request)
 
-    # start pumps
+    # Chạy 2 luồng bơm dữ liệu song song
     task_r = asyncio.create_task(tcp_reader_to_ws(reader, ws))
     task_w = asyncio.create_task(ws_to_tcp_writer(ws, writer))
 
-    # wait until tasks complete or error occurs
+    # Chờ đến khi WS đóng
+    await ws.wait_closed()
+    for t in (task_r, task_w):
+        t.cancel()
+
     try:
-        await asyncio.gather(task_r, task_w)
+        writer.close()
+        await writer.wait_closed()
     except Exception:
         pass
-    finally:
-        for t in (task_r, task_w):
-            if not t.done():
-                t.cancel()
-        try:
-            writer.close()
-            await writer.wait_closed()
-        except Exception:
-            pass
-        logging.info("WS disconnected.")
-    
+
+    logging.info("WS disconnected.")
     return ws
 
-async def index(request):
-    return web.FileResponse(WEB_DIR / "index.html")
 
-def create_app():
+async def index(_request: web.Request) -> web.FileResponse:
+    """
+    Truy cập '/' sẽ trả về trang login.html (đa trang).
+    """
+    return web.FileResponse(WEB_DIR / "login.html")
+
+
+async def open_browser(_app: web.Application) -> None:
+    """
+    Tự mở trình duyệt tới trang đăng nhập khi server khởi động.
+    Có thể tắt qua AUTO_OPEN=0.
+    """
+    if not AUTO_OPEN:
+        return
+    await asyncio.sleep(0.35)  # đợi server bind cổng xong
+    url = f"http://{HTTP_HOST}:{HTTP_PORT}/login.html"
+    try:
+        webbrowser.open(url)
+        logging.info(f"Opened browser at {url}")
+    except Exception as e:
+        logging.warning(f"Không mở được trình duyệt tự động: {e}")
+
+
+def create_app() -> web.Application:
+    if not WEB_DIR.exists():
+        raise RuntimeError(f"Static directory not found: {WEB_DIR}")
+
     app = web.Application()
-    # WebSocket bridge endpoint
+    # WebSocket bridge
     app.router.add_get("/ws-app", ws_app)
-    # Static files (serve / to web dir)
+    # Route gốc -> login.html
     app.router.add_get("/", index)
+    # Phục vụ tĩnh tất cả file trong thư mục web (login.html, lobby.html, room.html, common.js, styles.css, ...)
     app.router.add_static("/", path=str(WEB_DIR), name="static")
+
+    # Auto-open browser sau khi server start (nếu bật)
+    app.on_startup.append(open_browser)
     return app
 
+
 if __name__ == "__main__":
-    app = create_app()
-    logging.info(f"Serving Web UI from {WEB_DIR}")
-    logging.info(f"Gateway on http://{HTTP_HOST}:{HTTP_PORT}  -> Upstream TCP {SERVER_HOST}:{SERVER_PORT}")
-    web.run_app(app, host=HTTP_HOST, port=HTTP_PORT)
+    logging.info(f"Serving static from: {WEB_DIR}")
+    logging.info(f"Gateway: http://{HTTP_HOST}:{HTTP_PORT}  ->  TCP upstream {SERVER_HOST}:{SERVER_PORT}")
+    web.run_app(create_app(), host=HTTP_HOST, port=HTTP_PORT)
