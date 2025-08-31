@@ -1,395 +1,620 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HPH Meeting · Phòng họp</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{
-      font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background:#1a1a1a; color:#fff; height:100vh; display:flex; flex-direction:column; overflow:hidden;
-    }
-    .header{
-      background:rgba(0,0,0,.8); padding:1rem 2rem; display:flex; justify-content:space-between; align-items:center; backdrop-filter:blur(10px);
-      border-bottom:1px solid rgba(255,255,255,.08)
-    }
-    .room-info h1{font-size:1.5rem;color:#667eea}
-    .room-info p{font-size:.9rem;color:#ccc}
-    .header-controls{display:flex;gap:1rem;align-items:center}
-    .time-display{background:rgba(255,255,255,.1);padding:.5rem 1rem;border-radius:20px;font-weight:600}
-    .participants-count{background:rgba(102,126,234,.3);padding:.5rem 1rem;border-radius:20px}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HPH Meeting - Room</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    .video-grid{
-      flex:1; display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr));
-      gap:1rem; padding:1rem; overflow-y:auto;
-    }
-    .video-container{position:relative;background:#2a2a2a;border-radius:15px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 10px 30px rgba(0,0,0,.3);transition:.3s}
-    .video-container:hover{transform:translateY(-5px); box-shadow:0 15px 40px rgba(0,0,0,.4)}
-    .video-container.main{grid-column:1 / -1; max-height:60vh}
-    .video-element{width:100%;height:100%;object-fit:cover;background:#333;display:none}
-    .video-placeholder{
-      width:100%; height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column;
-      background:linear-gradient(135deg,#667eea 0%, #764ba2 100%); font-size:3rem
-    }
-    .video-overlay{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.8));padding:1rem;display:flex;justify-content:space-between;align-items:center}
-    .user-name{font-weight:600;font-size:1.1rem}
-    .user-status{display:flex;gap:.5rem}
-    .status-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem}
-    .mic-status{background:#28a745}
-    .mic-status.muted{background:#dc3545}
-    .camera-status{background:#007bff}
-    .camera-status.off{background:#6c757d}
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
 
-    .controls{
-      background:rgba(0,0,0,.9); padding:1.2rem; display:flex; justify-content:center; gap:1rem; backdrop-filter:blur(15px);
-      border-top:1px solid rgba(255,255,255,.1)
-    }
-    .control-btn{
-      padding:1rem;border:none;border-radius:50%;cursor:pointer;font-size:1.5rem;width:60px;height:60px;display:flex;align-items:center;justify-content:center;transition:.25s;font-weight:600
-    }
-    .control-btn:hover{transform:translateY(-3px); box-shadow:0 10px 20px rgba(0,0,0,.3)}
-    .mic-btn{background:#28a745;color:#fff}.mic-btn.muted{background:#dc3545}
-    .camera-btn{background:#007bff;color:#fff}.camera-btn.off{background:#6c757d}
-    .screen-btn{background:#17a2b8;color:#fff}.screen-btn.sharing{background:#ffc107;color:#000}
-    .chat-btn{background:#6f42c1;color:#fff}
-    .settings-btn{background:#6c757d;color:#fff}
-    .end-call-btn{background:#dc3545;color:#fff}
+        .room-container {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+        }
 
-    .sidebar{
-      position:fixed; right:0; top:0; width:350px; height:100vh; background:rgba(0,0,0,.95); backdrop-filter:blur(20px);
-      transform:translateX(100%); transition:transform .3s; display:flex; flex-direction:column; border-left:1px solid rgba(255,255,255,.1); z-index:50
-    }
-    .sidebar.open{transform:translateX(0)}
-    .sidebar-header{padding:1rem;border-bottom:1px solid rgba(255,255,255,.1);display:flex;justify-content:space-between;align-items:center}
-    .close-sidebar{background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer}
-    .sidebar-content{flex:1;overflow-y:auto;padding:1rem}
-    .participant-list{display:flex;flex-direction:column;gap:.5rem}
-    .participant-item{background:rgba(255,255,255,.08);padding:1rem;border-radius:10px;display:flex;align-items:center;gap:1rem}
-    .participant-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#667eea 0%, #764ba2 100%);display:flex;align-items:center;justify-content:center;font-weight:600}
-    .participant-info{flex:1}.participant-name{font-weight:600}.participant-status{font-size:.8rem;color:#ccc}
+        .header {
+            background: #2d2d2d;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #404040;
+        }
 
-    .chat-area{flex:1;display:flex;flex-direction:column;gap:1rem;margin-top:1rem}
-    .chat-messages{flex:1;background:rgba(255,255,255,.05);border-radius:10px;padding:1rem;overflow-y:auto;max-height:300px}
-    .chat-message{margin-bottom:1rem;padding:.5rem;background:rgba(255,255,255,.08);border-radius:8px}
-    .message-author{font-weight:600;font-size:.8rem;color:#667eea;margin-bottom:.25rem}
-    .chat-input-area{display:flex;gap:.5rem}
-    .chat-input-area input{flex:1;padding:.5rem;border:1px solid rgba(255,255,255,.2);border-radius:5px;background:rgba(255,255,255,.1);color:#fff}
-    .chat-input-area input::placeholder{color:rgba(255,255,255,.5)}
-    .chat-input-area button{padding:.5rem 1rem;border:none;background:#667eea;color:#fff;border-radius:5px;cursor:pointer}
+        .room-info h1 {
+            font-size: 1.2rem;
+            color: #fff;
+        }
 
-    .notification{
-      position:fixed; top:20px; right:20px; background:rgba(0,0,0,.9); color:#fff; padding:1rem; border-radius:10px; border:1px solid rgba(255,255,255,.2);
-      z-index:1000; animation:slideInRight .3s ease
-    }
-    @keyframes slideInRight{from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1}}
+        .room-info p {
+            color: #ccc;
+            font-size: 0.9rem;
+        }
 
-    .loading{
-      position:fixed; inset:0; background:rgba(0,0,0,.8); display:flex; align-items:center; justify-content:center; flex-direction:column; z-index:2000
-    }
-    .loading-spinner{width:50px;height:50px;border:5px solid rgba(255,255,255,.3);border-top:5px solid #667eea;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:1rem}
-    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+        .header-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
 
-    @media (max-width: 768px){
-      .video-grid{grid-template-columns:1fr}
-      .sidebar{width:100%}
-      .controls{padding:1rem;gap:.5rem}
-      .control-btn{width:50px;height:50px;font-size:1.2rem}
-    }
-  </style>
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            height: 100%;
+        }
+
+        .video-area {
+            background: #000;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .video-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .video-container {
+            background: #2d2d2d;
+            border-radius: 8px;
+            position: relative;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .video-overlay {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .sidebar {
+            background: #2d2d2d;
+            border-left: 1px solid #404040;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-tabs {
+            display: flex;
+            border-bottom: 1px solid #404040;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 1rem;
+            background: none;
+            border: none;
+            color: #ccc;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: white;
+            background: #404040;
+        }
+
+        .tab-content {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .participants-list {
+            list-style: none;
+        }
+
+        .participant-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.25rem;
+        }
+
+        .participant-item:hover {
+            background: #404040;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #27ae60;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+        }
+
+        .message-author {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .message-time {
+            font-size: 0.8rem;
+            color: #999;
+        }
+
+        .message-content {
+            color: #ddd;
+            line-height: 1.4;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 0.5rem;
+            background: #404040;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: white;
+        }
+
+        .chat-input input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .controls {
+            background: #2d2d2d;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            border-top: 1px solid #404040;
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+        }
+
+        .control-btn.mic {
+            background: #27ae60;
+            color: white;
+        }
+
+        .control-btn.mic.muted {
+            background: #e74c3c;
+        }
+
+        .control-btn.camera {
+            background: #3498db;
+            color: white;
+        }
+
+        .control-btn.camera.off {
+            background: #e74c3c;
+        }
+
+        .control-btn.leave {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                position: fixed;
+                top: 0;
+                right: -300px;
+                height: 100vh;
+                width: 300px;
+                z-index: 1000;
+                transition: right 0.3s;
+            }
+            
+            .sidebar.open {
+                right: 0;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div id="loading" class="loading">
-    <div class="loading-spinner"></div>
-    <div>Đang thiết lập cuộc gọi...</div>
-  </div>
-
-  <div class="header">
-    <div class="room-info">
-      <h1 id="roomName">Phòng họp</h1>
-      <p id="roomDescription">Video call đang hoạt động</p>
-    </div>
-    <div class="header-controls">
-      <div class="time-display" id="callDuration">00:00</div>
-      <div class="participants-count" id="participantCount">1 người</div>
-    </div>
-  </div>
-
-  <div class="video-grid" id="videoGrid">
-    <div class="video-container main" id="localVideoContainer">
-      <video id="localVideo" class="video-element" muted autoplay playsinline></video>
-      <div class="video-placeholder" id="localPlaceholder">
-        <div>👤</div>
-        <div style="font-size:1rem;margin-top:.5rem">Camera chưa bật</div>
-      </div>
-      <div class="video-overlay">
-        <div class="user-name" id="localUserName">Bạn</div>
-        <div class="user-status">
-          <div class="status-icon mic-status" id="localMicStatus">🎤</div>
-          <div class="status-icon camera-status" id="localCameraStatus">📹</div>
+    <div class="room-container">
+        <div class="header">
+            <div class="room-info">
+                <h1 id="roomName">Loading...</h1>
+                <p id="participantCount">0 participants</p>
+            </div>
+            <div class="header-controls">
+                <button class="btn btn-primary" onclick="toggleSidebar()">Chat</button>
+                <button class="btn btn-danger" onclick="leaveRoom()">Leave</button>
+            </div>
         </div>
-      </div>
-    </div>
-  </div>
 
-  <div class="controls">
-    <button class="control-btn mic-btn" id="micBtn" title="Bật/tắt micro">🎤</button>
-    <button class="control-btn camera-btn" id="cameraBtn" title="Bật/tắt camera">📹</button>
-    <button class="control-btn screen-btn" id="screenBtn" title="Chia sẻ màn hình">🖥️</button>
-    <button class="control-btn chat-btn" id="chatBtn" title="Mở chat">💬</button>
-    <button class="control-btn settings-btn" id="settingsBtn" title="Cài đặt">⚙️</button>
-    <button class="control-btn end-call-btn" id="endBtn" title="Kết thúc cuộc gọi">📞</button>
-  </div>
+        <div class="main-content">
+            <div class="video-area">
+                <div class="video-grid" id="videoGrid">
+                    <div class="video-container">
+                        <video id="localVideo" autoplay muted></video>
+                        <div class="video-overlay">You</div>
+                    </div>
+                </div>
+            </div>
 
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <h3>Thông tin cuộc gọi</h3>
-      <button class="close-sidebar" id="closeSidebar">×</button>
-    </div>
-    <div class="sidebar-content">
-      <div class="sidebar-section">
-        <h4 style="margin-bottom:1rem">Người tham gia</h4>
-        <div class="participant-list" id="participantList"></div>
-      </div>
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-tabs">
+                    <button class="tab active" onclick="switchTab('participants')">Participants</button>
+                    <button class="tab" onclick="switchTab('chat')">Chat</button>
+                </div>
 
-      <div class="sidebar-section" id="chatSection" style="display:none">
-        <h4 style="margin:1rem 0">Chat</h4>
-        <div class="chat-area">
-          <div class="chat-messages" id="chatMessages"></div>
-          <div class="chat-input-area">
-            <input type="text" id="chatInput" placeholder="Nhập tin nhắn...">
-            <button id="sendChat">Gửi</button>
-          </div>
+                <div class="tab-content">
+                    <div id="participantsTab">
+                        <ul class="participants-list" id="participantsList">
+                            <li class="participant-item">
+                                <div class="status-indicator"></div>
+                                <span id="currentUser">You</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div id="chatTab" class="hidden">
+                        <div class="chat-messages" id="chatMessages"></div>
+                        <div class="chat-input">
+                            <input type="text" id="messageInput" placeholder="Type a message..." maxlength="500">
+                            <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
+
+        <div class="controls">
+            <button class="control-btn mic" id="micBtn" onclick="toggleMic()" title="Toggle Microphone">
+                🎤
+            </button>
+            <button class="control-btn camera" id="cameraBtn" onclick="toggleCamera()" title="Toggle Camera">
+                📹
+            </button>
+            <button class="control-btn leave" onclick="leaveRoom()" title="Leave Room">
+                📞
+            </button>
+        </div>
     </div>
-  </div>
 
-  <script type="module">
-    import { ensureCredsOrRedirect, connectAndLogin, getRoom, setRoom } from './common.js';
+    <script src="common.js"></script>
+    <script>
+        let currentRoom = '';
+        let participants = new Set();
+        let localStream = null;
+        let isMicMuted = false;
+        let isCameraOff = false;
 
-    // ---------- State ----------
-    const $ = (s)=>document.querySelector(s);
-    const creds = ensureCredsOrRedirect(); if(!creds) throw new Error('No creds');
-    let room = getRoom() || new URLSearchParams(location.search).get('room') || 'default';
-    setRoom(room);
-    let ws = null;
-    let localStream = null;
-    let micEnabled = false, camEnabled = false, screenSharing = false;
-    const participants = new Map(); // username -> {element}
+        // Initialize room
+        async function initRoom() {
+            // Get room from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            currentRoom = urlParams.get('room') || sessionStorage.getItem('currentRoom');
+            
+            if (!currentRoom) {
+                window.location.href = 'lobby.html';
+                return;
+            }
 
-    // ---------- UI Boot ----------
-    $('#localUserName').textContent = creds.username;
-    $('#roomName').textContent = 'Phòng: ' + room;
+            // Check authentication
+            const username = sessionStorage.getItem('username');
+            if (!username) {
+                window.location.href = 'login.html';
+                return;
+            }
 
-    // ---------- Helpers ----------
-    function showNotification(text){
-      const n = document.createElement('div');
-      n.className = 'notification';
-      n.textContent = text;
-      document.body.append(n);
-      setTimeout(()=>n.remove(), 2000);
-    }
-    function updateParticipantCount(){
-      const count = participants.size + 1; // + local
-      $('#participantCount').textContent = count + ' người';
-    }
-    function addChatMessage(author, text){
-      const box = $('#chatMessages');
-      const item = document.createElement('div');
-      item.className = 'chat-message';
-      item.innerHTML = '<div class="message-author">'+author+'</div><div>'+text+'</div>';
-      box.append(item);
-      box.scrollTop = box.scrollHeight;
-    }
-    function renderParticipantList(users){
-      const box = $('#participantList'); box.innerHTML = '';
-      users.forEach(u=>{
-        const row = document.createElement('div');
-        row.className = 'participant-item';
-        row.innerHTML = `
-          <div class="participant-avatar">${(u.username||'?').slice(0,2).toUpperCase()}</div>
-          <div class="participant-info">
-            <div class="participant-name">${u.username}</div>
-            <div class="participant-status">${u.username===creds.username?'Bạn':'Đang tham gia'}</div>
-          </div>`;
-        box.append(row);
-      });
-    }
-    function ensureRemoteTile(username){
-      if(username === creds.username || participants.has(username)) return;
-      const vc = document.createElement('div');
-      vc.className = 'video-container';
-      vc.id = 'participant-'+username;
-      vc.innerHTML = `
-        <div class="video-placeholder"><div>👤</div><div style="font-size:1rem;margin-top:.5rem;">Camera chưa bật</div></div>
-        <video class="video-element" autoplay playsinline></video>
-        <div class="video-overlay">
-          <div class="user-name">${username}</div>
-          <div class="user-status">
-            <div class="status-icon mic-status">🎤</div>
-            <div class="status-icon camera-status">📹</div>
-          </div>
-        </div>`;
-      $('#videoGrid').append(vc);
-      participants.set(username, { element: vc });
-      updateParticipantCount();
-    }
-    function removeRemoteTile(username){
-      const p = participants.get(username);
-      if(p){ p.element.remove(); participants.delete(username); updateParticipantCount(); }
-    }
-    function setLocalVideoVisible(on){
-      const v = $('#localVideo'), ph = $('#localPlaceholder');
-      v.style.display = on ? 'block' : 'none';
-      ph.style.display = on ? 'none' : 'flex';
-    }
-    function updateLocalIndicators(){
-      $('#localMicStatus').classList.toggle('muted', !micEnabled);
-      $('#localCameraStatus').classList.toggle('off', !camEnabled);
-      $('#micBtn').classList.toggle('muted', !micEnabled);
-      $('#cameraBtn').classList.toggle('off', !camEnabled);
-    }
-    function broadcastMediaState(){
-      ws && ws.send(JSON.stringify({ type:'media_state', micEnabled, cameraEnabled: camEnabled }));
-    }
+            document.getElementById('roomName').textContent = currentRoom;
+            document.getElementById('currentUser').textContent = username;
 
-    // ---------- Media ----------
-    async function initMedia(){
-      try{
-        localStream = await navigator.mediaDevices.getUserMedia({ video:true, audio:true });
-        $('#localVideo').srcObject = localStream;
-        camEnabled = true; micEnabled = true;
-        setLocalVideoVisible(true);
-        updateLocalIndicators();
-      }catch(err){
-        console.log('Media denied:', err);
-        showNotification('Không thể truy cập camera/micro');
-        camEnabled = false; micEnabled = false;
-        setLocalVideoVisible(false);
-        updateLocalIndicators();
-      }
-    }
-    async function toggleCamera(){
-      if(!localStream){
-        await initMedia();
-        broadcastMediaState();
-        return;
-      }
-      const vTrack = localStream.getVideoTracks()[0];
-      if(camEnabled){
-        if(vTrack){ vTrack.stop(); localStream.removeTrack(vTrack); }
-        camEnabled = false; setLocalVideoVisible(false);
-      }else{
-        try{
-          const s = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
-          const nt = s.getVideoTracks()[0];
-          localStream.addTrack(nt);
-          $('#localVideo').srcObject = localStream;
-          camEnabled = true; setLocalVideoVisible(true);
-        }catch(e){ showNotification('Không bật được camera'); }
-      }
-      updateLocalIndicators(); broadcastMediaState();
-    }
-    function toggleMic(){
-      if(!localStream){ showNotification('Chưa bật micro/camera'); return; }
-      const aTrack = localStream.getAudioTracks()[0];
-      if(aTrack){ aTrack.enabled = !aTrack.enabled; micEnabled = aTrack.enabled; }
-      updateLocalIndicators(); broadcastMediaState();
-    }
-    let screenStream = null;
-    async function toggleScreenShare(){
-      if(!screenSharing){
-        try{
-          screenStream = await navigator.mediaDevices.getDisplayMedia({ video:true, audio:false });
-          $('#localVideo').srcObject = screenStream;
-          screenSharing = true; $('#screenBtn').classList.add('sharing');
-        }catch(e){ /* user cancelled */ }
-      }else{
-        if(screenStream){ screenStream.getTracks().forEach(t=>t.stop()); screenStream = null; }
-        $('#localVideo').srcObject = localStream || null;
-        screenSharing = false; $('#screenBtn').classList.remove('sharing');
-      }
-    }
-
-    // ---------- Call duration ----------
-    function startTimer(){
-      const start = Date.now();
-      setInterval(()=>{
-        const s = Math.floor((Date.now()-start)/1000);
-        const mm = String(Math.floor(s/60)).padStart(2,'0');
-        const ss = String(s%60).padStart(2,'0');
-        $('#callDuration').textContent = `${mm}:${ss}`;
-      }, 1000);
-    }
-
-    // ---------- WebSocket / Protocol ----------
-    function onLoginOk(msg){
-      ws.send(JSON.stringify({ type:'join_room', room }));
-    }
-    function onMessage(msg){
-      switch(msg.type){
-        case 'join_room':
-          // users: [{username}, ...]
-          if(Array.isArray(msg.users)){ renderParticipantList(msg.users); msg.users.forEach(u=>ensureRemoteTile(u.username)); }
-          $('#loading').style.display='none';
-          break;
-        case 'user_list':
-          if(Array.isArray(msg.users)){ renderParticipantList(msg.users); }
-          break;
-        case 'user_joined':
-          ensureRemoteTile(msg.user || msg.username); showNotification(`${msg.user||msg.username} đã vào phòng`);
-          break;
-        case 'user_left':
-          removeRemoteTile(msg.user || msg.username); showNotification(`${msg.user||msg.username} đã rời phòng`);
-          break;
-        case 'chat':
-          addChatMessage(msg.from || 'Người dùng', msg.message ?? (msg.payload && msg.payload.text) ?? '');
-          break;
-        case 'media_state': {
-          const name = msg.from || msg.username;
-          const p = participants.get(name); if(!p) return;
-          const mic = p.element.querySelector('.mic-status');
-          const cam = p.element.querySelector('.camera-status');
-          const st = msg.payload || msg;
-          if(mic) mic.classList.toggle('muted', !st.micEnabled);
-          if(cam) cam.classList.toggle('off', !st.cameraEnabled);
-          break;
+            try {
+                // Connect WebSocket
+                await connectWebSocket();
+                
+                // Set up message handlers
+                setupMessageHandlers();
+                
+                // Join room
+                await joinRoom();
+                
+                // Initialize media
+                await initializeMedia();
+                
+            } catch (error) {
+                console.error('Room initialization error:', error);
+                showNotification('Failed to join room', 'error');
+                setTimeout(() => {
+                    window.location.href = 'lobby.html';
+                }, 3000);
+            }
         }
-        default: /* ignore */ break;
-      }
-    }
-    function onClose(){ showNotification('Mất kết nối tới server'); }
 
-    // ---------- Boot ----------
-    (async ()=>{
-      await initMedia();
-      ws = connectAndLogin(creds, { onLoginOk, onMessage, onClose });
-      startTimer();
-      $('#loading').style.display='none';
-    })();
+        async function joinRoom() {
+            const response = await sendMessage({
+                type: 'join_room',
+                payload: { room: currentRoom }
+            });
+            
+            if (!response.ok && response.hasOwnProperty('ok')) {
+                throw new Error(response.error || 'Failed to join room');
+            }
+        }
 
-    // ---------- Controls & Sidebar ----------
-    $('#micBtn').addEventListener('click', toggleMic);
-    $('#cameraBtn').addEventListener('click', toggleCamera);
-    $('#screenBtn').addEventListener('click', toggleScreenShare);
-    $('#chatBtn').addEventListener('click', ()=>{ $('#sidebar').classList.add('open'); $('#chatSection').style.display='block'; });
-    $('#closeSidebar').addEventListener('click', ()=> $('#sidebar').classList.remove('open'));
-    $('#settingsBtn').addEventListener('click', ()=> alert('Cài đặt sẽ bổ sung sau.'));
-    $('#endBtn').addEventListener('click', ()=>{
-      ws && ws.send(JSON.stringify({ type:'leave_room' }));
-      try{ localStream && localStream.getTracks().forEach(t=>t.stop()); }catch(_){}
-      location.href = 'lobby.html';
-    });
+        async function initializeMedia() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+                
+                document.getElementById('localVideo').srcObject = localStream;
+            } catch (error) {
+                console.error('Media access error:', error);
+                showNotification('Could not access camera/microphone', 'warning');
+            }
+        }
 
-    // Chat
-    $('#sendChat').addEventListener('click', ()=>{
-      const t = $('#chatInput').value.trim(); if(!t) return;
-      ws && ws.send(JSON.stringify({ type:'chat', message: t }));
-      addChatMessage(creds.username, t);
-      $('#chatInput').value='';
-    });
-    $('#chatInput').addEventListener('keypress', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); $('#sendChat').click(); }});
-  </script>
+        function setupMessageHandlers() {
+            onMessage('chat', handleChatMessage);
+            onMessage('system', handleSystemMessage);
+            onMessage('participant_joined', handleParticipantJoined);
+            onMessage('participant_left', handleParticipantLeft);
+        }
+
+        function handleChatMessage(message) {
+            addChatMessage(message.from, message.payload.text, new Date());
+        }
+
+        function handleSystemMessage(message) {
+            addSystemMessage(message.payload.msg);
+        }
+
+        function handleParticipantJoined(message) {
+            participants.add(message.from);
+            updateParticipantsList();
+            addSystemMessage(`${message.from} joined the room`);
+        }
+
+        function handleParticipantLeft(message) {
+            participants.delete(message.from);
+            updateParticipantsList();
+            addSystemMessage(`${message.from} left the room`);
+        }
+
+        function updateParticipantsList() {
+            const list = document.getElementById('participantsList');
+            const currentUser = sessionStorage.getItem('username');
+            
+            list.innerHTML = `
+                <li class="participant-item">
+                    <div class="status-indicator"></div>
+                    <span>You</span>
+                </li>
+            `;
+            
+            participants.forEach(participant => {
+                if (participant !== currentUser) {
+                    const li = document.createElement('li');
+                    li.className = 'participant-item';
+                    li.innerHTML = `
+                        <div class="status-indicator"></div>
+                        <span>${escapeHtml(participant)}</span>
+                    `;
+                    list.appendChild(li);
+                }
+            });
+            
+            document.getElementById('participantCount').textContent = 
+                `${participants.size + 1} participant${participants.size !== 0 ? 's' : ''}`;
+        }
+
+        function addChatMessage(author, content, timestamp) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <span class="message-author">${escapeHtml(author)}</span>
+                    <span class="message-time">${formatTime(timestamp)}</span>
+                </div>
+                <div class="message-content">${escapeHtml(content)}</div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function addSystemMessage(content) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            messageDiv.innerHTML = `
+                <div class="message-content" style="color: #999; font-style: italic;">
+                    ${escapeHtml(content)}
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            try {
+                await sendMessage({
+                    type: 'chat',
+                    payload: { text: message }
+                });
+                
+                input.value = '';
+            } catch (error) {
+                console.error('Send message error:', error);
+                showNotification('Failed to send message', 'error');
+            }
+        }
+
+        function toggleMic() {
+            if (!localStream) return;
+            
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                isMicMuted = !audioTrack.enabled;
+                
+                const micBtn = document.getElementById('micBtn');
+                micBtn.classList.toggle('muted', isMicMuted);
+                micBtn.textContent = isMicMuted ? '🔇' : '🎤';
+            }
+        }
+
+        function toggleCamera() {
+            if (!localStream) return;
+            
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = !videoTrack.enabled;
+                isCameraOff = !videoTrack.enabled;
+                
+                const cameraBtn = document.getElementById('cameraBtn');
+                cameraBtn.classList.toggle('off', isCameraOff);
+                cameraBtn.textContent = isCameraOff ? '📷' : '📹';
+            }
+        }
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Show/hide tab content
+            document.getElementById('participantsTab').classList.toggle('hidden', tabName !== 'participants');
+            document.getElementById('chatTab').classList.toggle('hidden', tabName !== 'chat');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        async function leaveRoom() {
+            try {
+                await sendMessage({
+                    type: 'leave_room',
+                    payload: {}
+                });
+            } catch (error) {
+                console.error('Leave room error:', error);
+            }
+            
+            // Clean up media
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Redirect to lobby
+            window.location.href = 'lobby.html';
+        }
+
+        // Handle Enter key in message input
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+
+        // Initialize when page loads
+        initRoom();
+    </script>
 </body>
 </html>

@@ -1,179 +1,268 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HPH Meeting · Đăng nhập</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      min-height:100vh; display:flex; align-items:center; justify-content:center;
-      background: linear-gradient(135deg,#667eea 0%, #764ba2 100%);
-      color:#333;
-    }
-    .login-container{
-      width:100%; max-width:420px; padding:2rem;
-      background:rgba(255,255,255,.95); backdrop-filter: blur(10px);
-      border-radius:20px; box-shadow:0 20px 40px rgba(0,0,0,.15);
-      animation:slideIn .5s ease-out;
-    }
-    @keyframes slideIn{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HPH Meeting - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    .app-title{ text-align:center; margin-bottom:1.5rem; }
-    .logo{
-      font-weight:900; font-size:2rem; letter-spacing:.5px;
-      background: linear-gradient(90deg,#667eea,#764ba2);
-      -webkit-background-clip:text; background-clip:text; color:transparent;
-      margin-bottom:.25rem;
-    }
-    .subtitle{ color:#666; font-size:.95rem }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-    .title-center{ text-align:center; font-weight:700; color:#5a67d8; margin:1rem 0 1.25rem }
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
 
-    .form-group{ margin-bottom:1.1rem }
-    .form-group label{ display:block; margin-bottom:.5rem; font-weight:600; color:#555 }
-    .form-group input{
-      width:100%; padding:.75rem 1rem; border:2px solid #e1e5e9; border-radius:12px;
-      font-size:1rem; background:#fafbfc; transition:.25s;
-    }
-    .form-group input:focus{
-      outline:none; border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,.12);
-      transform:translateY(-2px);
-    }
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
 
-    .login-btn{
-      width:100%; padding:.8rem 1rem; border:none; border-radius:12px;
-      background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-      color:#fff; font-size:1rem; font-weight:700; cursor:pointer;
-      letter-spacing:.3px; transition:.25s;
-    }
-    .login-btn:hover{ transform:translateY(-2px); box-shadow:0 10px 20px rgba(102,126,234,.28) }
-    .login-btn:disabled{ opacity:.6; cursor:not-allowed; transform:none; box-shadow:none }
+        .logo h1 {
+            color: #333;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
 
-    .error-message,.success-message{
-      display:none; margin-bottom:1rem; padding:.75rem 1rem; border-radius:12px; border:1px solid;
-    }
-    .error-message{ background:#fee; color:#c33; border-color:#fcc }
-    .success-message{ background:#efe; color:#2a9d2a; border-color:#cfc }
+        .logo p {
+            color: #666;
+            font-size: 0.9rem;
+        }
 
-    .status{ text-align:center; margin-top:1rem; font-size:.9rem; color:#666 }
-    .hint{ font-size:.85rem; color:#777; margin-top:.25rem }
-  </style>
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input[type="text"], input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error {
+            color: #e74c3c;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .success {
+            color: #27ae60;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .register-link {
+            text-align: center;
+            margin-top: 1rem;
+            color: #666;
+        }
+
+        .register-link a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-  <div class="login-container" role="main" aria-label="Đăng nhập">
-    <div class="app-title">
-      <div class="logo" aria-hidden="true">HPH Meeting</div>
-      <div class="subtitle">Ứng dụng phòng họp trực tuyến</div>
-    </div>
+    <div class="login-container">
+        <div class="logo">
+            <h1>HPH Meeting</h1>
+            <p>Connect, Collaborate, Create</p>
+        </div>
 
-    <h2 class="title-center">Đăng nhập</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required 
+                       pattern="[a-zA-Z0-9_]+" title="Only letters, numbers, and underscores allowed"
+                       autocomplete="username">
+            </div>
 
-    <div id="errorMsg" class="error-message" role="alert"></div>
-    <div id="successMsg" class="success-message" role="status"></div>
+            <div class="form-group">
+                <label for="email">Email (Gmail only)</label>
+                <input type="email" id="email" name="email" required 
+                       pattern="[a-zA-Z0-9._%+]+@gmail.com" title="Please enter a valid Gmail address"
+                       autocomplete="email">
+            </div>
 
-    <form id="loginForm" novalidate>
-      <div class="form-group">
-        <label for="username">Tên đăng nhập</label>
-        <input id="username" name="username" placeholder="a-z, 0-9, _"
-               pattern="^[a-z0-9_]{1,24}$" maxlength="24" required />
-        <div class="hint">Chỉ gồm chữ thường, số và dấu gạch dưới (tối đa 24 ký tự).</div>
-      </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required minlength="6"
+                autocomplete="current-password">
+            </div>
 
-      <div class="form-group">
-        <label for="email">Gmail</label>
-        <input id="email" name="email" placeholder="yourname@gmail.com"
-               pattern="^[A-Za-z0-9._%+-]+@gmail\.com$" required />
-        <div class="hint">Chỉ chấp nhận địa chỉ <b>@gmail.com</b>.</div>
-      </div>
+            <button type="submit" class="btn" id="loginBtn">Login</button>
+            
+            <div class="error" id="errorMsg"></div>
+            <div class="success" id="successMsg"></div>
+        </form>
 
-      <button type="submit" id="loginBtn" class="login-btn">Vào sảnh</button>
-    </form>
+    <script src="common.js"></script>
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const errorMsg = document.getElementById('errorMsg');
+        const successMsg = document.getElementById('successMsg');
 
-    <div class="status" id="status">Sẵn sàng kết nối…</div>
-  </div>
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
-  <script type="module">
-    import { RE_USERNAME, RE_GMAIL, getWsUrl, saveCreds } from './common.js';
+            // Validate Gmail
+            if (!email.endsWith('@gmail.com')) {
+                showError('Please use a Gmail address');
+                return;
+            }
 
-    const $ = (s) => document.querySelector(s);
-    const errorBox = $('#errorMsg');
-    const okBox = $('#successMsg');
-    const statusEl = $('#status');
-    let ws = null;
+            // Validate username
+            if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                showError('Username can only contain letters, numbers, and underscores');
+                return;
+            }
 
-    function showMsg(text, isError=false){
-      if(isError){
-        errorBox.textContent = text; errorBox.style.display='block';
-        okBox.style.display='none';
-      } else {
-        okBox.textContent = text; okBox.style.display='block';
-        errorBox.style.display='none';
-      }
-    }
-    function setStatus(text){ statusEl.textContent = text; }
-    function disableForm(disabled){
-      $('#loginBtn').disabled = disabled;
-      $('#username').disabled = disabled;
-      $('#email').disabled = disabled;
-      $('#loginBtn').textContent = disabled ? 'Đang đăng nhập…' : 'Vào sảnh';
-    }
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Logging in...';
 
-    async function connectWsOnce(){
-      return new Promise((resolve, reject) => {
-        try{
-          const url = getWsUrl();       // ví dụ: ws://127.0.0.1:8080/ws-app
-          ws = new WebSocket(url);
+            try {
+                console.log('[v0] Testing WebSocket connection...');
+                console.log('[v0] Current WebSocket state:', ws?.readyState);
+                console.log('[v0] WebSocket URL will be:', `ws://${window.location.hostname}:${window.location.port}/ws`);
+                
+                if (!await testConnection()) {
+                    console.log('[v0] Connection test failed');
+                    showError('Cannot connect to server. Please check if the server is running.');
+                    return;
+                }
+                console.log('[v0] Connection test successful, WebSocket state:', ws?.readyState);
 
-          ws.onopen = () => { setStatus('Đã kết nối tới gateway'); resolve(); };
-          ws.onerror = (e) => { setStatus('Lỗi kết nối đến gateway'); reject(e); };
-          ws.onclose = () => { setStatus('Mất kết nối tới gateway'); };
-          ws.onmessage = (ev) => {
-            try{ handleMessage(JSON.parse(ev.data)); }
-            catch{ /* bỏ qua non-JSON */ }
-          };
-        }catch(err){ reject(err); }
-      });
-    }
+                const message = {
+                    type: "login",
+                    payload: {
+                        username: username,
+                        email: email,
+                        password: password
+                    }
+                };
 
-    function handleMessage(msg){
-      // Server (qua gateway) phản hồi { type:'login', ok:true, username, email, rooms?... }
-      if (msg.type === 'login' && msg.ok !== false){
-        showMsg('Đăng nhập thành công! Đang chuyển hướng…', false);
-        saveCreds({ username: $('#username').value.trim(), email: $('#email').value.trim() });
-        setTimeout(()=> location.href = 'lobby.html', 800);
-      } else if (msg.type === 'login' && msg.ok === false){
-        showMsg(msg.error || 'Đăng nhập thất bại', true);
-        disableForm(false);
-      }
-    }
+                console.log('[v0] Sending authentication message:', message);
+                const response = await sendMessage(message);
+                console.log('[v0] Received response:', response);
+                
+                if (response.ok) {
+                    // Store credentials
+                    sessionStorage.setItem('username', username);
+                    sessionStorage.setItem('email', email);
+                    if (response.token) {
+                        sessionStorage.setItem('token', response.token);
+                    }
+                    if (response.aes_key_b64) {
+                        sessionStorage.setItem('aes_key', response.aes_key_b64);
+                    }
+                    
+                    console.log('[v0] Authentication successful, redirecting...');
+                    showSuccess('Login successful!');
+                    
+                    // Redirect to lobby
+                    setTimeout(() => {
+                        window.location.href = 'lobby.html';
+                    }, 1000);
+                } else {
+                    console.log('[v0] Authentication failed:', response.error);
+                    showError(response.error || 'Authentication failed');
+                }
+            } catch (error) {
+                console.error('[v0] Authentication error:', error);
+                if (error.message === 'Message timeout') {
+                    showError('Server is not responding. Please check if TCP server is running on port 8888.');
+                } else if (error.message === 'Connection timeout') {
+                    showError('Cannot connect to WebSocket. Please check if Gateway server is running on port 8080.');
+                } else {
+                    showError(`Connection error: ${error.message}`);
+                }
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+            }
+        });
 
-    $('#loginForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const username = $('#username').value.trim();
-      const email = $('#email').value.trim();
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            successMsg.style.display = 'none';
+        }
 
-      if (!RE_USERNAME.test(username)){
-        showMsg('Tên đăng nhập chỉ gồm a-z, 0-9, _ (tối đa 24).', true); return;
-      }
-      if (!RE_GMAIL.test(email)){
-        showMsg('Chỉ chấp nhận địa chỉ @gmail.com hợp lệ.', true); return;
-      }
+        function showSuccess(message) {
+            successMsg.textContent = message;
+            successMsg.style.display = 'block';
+            errorMsg.style.display = 'none';
+        }
 
-      disableForm(true);
-      setStatus('Đang kết nối…');
-      try{
-        await connectWsOnce();
-
-        // Gửi yêu cầu đăng nhập theo giao thức nhóm
-        ws.send(JSON.stringify({ type:'login', username, email }));
-
-      }catch(err){
-        showMsg('Không thể kết nối tới gateway. Vui lòng kiểm tra gateway.py.', true);
-        disableForm(false);
-      }
-    });
-  </script>
+        // Check if already logged in
+        if (sessionStorage.getItem('username')) {
+            window.location.href = 'lobby.html';
+        }
+    </script>
 </body>
 </html>

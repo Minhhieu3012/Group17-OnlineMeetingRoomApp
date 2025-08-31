@@ -1,185 +1,378 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HPH Meeting · Sảnh</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{
-      font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      min-height:100vh; display:flex; align-items:center; justify-content:center;
-      background:linear-gradient(135deg,#667eea 0%, #764ba2 100%); color:#333;
-    }
-    .lobby-card{
-      width:100%; max-width:960px; background:rgba(255,255,255,.95);
-      border-radius:20px; backdrop-filter:blur(10px); padding:2rem;
-      box-shadow:0 20px 40px rgba(0,0,0,.15); animation:slideIn .5s ease-out;
-    }
-    @keyframes slideIn{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
-    .logo{
-      text-align:center; font-weight:900; font-size:2rem; letter-spacing:.5px;
-      background:linear-gradient(90deg,#667eea,#764ba2); -webkit-background-clip:text; background-clip:text; color:transparent;
-    }
-    .subtitle{ text-align:center; color:#666; margin-top:.25rem }
-    .bar{display:flex; gap:1rem; align-items:center; justify-content:center; margin:1rem 0 1.5rem}
-    .me{background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; padding:.35rem .75rem; border-radius:999px; font-weight:600}
-    .btn-ghost{border:1px solid #667eea; color:#4c51bf; background:#fff; padding:.45rem .8rem; border-radius:10px; cursor:pointer}
-    .btn-ghost:hover{filter:brightness(.97)}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HPH Meeting - Lobby</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    .grid{display:grid; grid-template-columns:1.1fr .9fr; gap:1.25rem}
-    .panel{background:#fafbfc; border:2px solid #e1e5e9; border-radius:16px; padding:1.25rem}
-    h3{margin-bottom:.75rem; color:#4c51bf}
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
 
-    .form{display:flex; gap:.6rem}
-    .input{
-      flex:1; padding:.8rem 1rem; border:2px solid #e1e5e9; border-radius:12px; background:#fff; transition:.25s
-    }
-    .input:focus{outline:none; border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,.12); transform:translateY(-2px)}
-    .btn-primary{
-      padding:.85rem 1rem; border:none; border-radius:12px; cursor:pointer; font-weight:700; color:#fff;
-      background:linear-gradient(135deg,#667eea 0%, #764ba2 100%); transition:.25s
-    }
-    .btn-primary:hover{transform:translateY(-2px); box-shadow:0 10px 20px rgba(102,126,234,.28)}
-    .error{display:none; margin-top:.75rem; background:#fee; border:1px solid #fcc; color:#c33; padding:.75rem 1rem; border-radius:12px}
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
 
-    .rooms{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.6rem; max-height:360px; overflow:auto}
-    .room-row{
-      display:flex; align-items:center; justify-content:space-between; gap:.75rem;
-      background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:.75rem 1rem
-    }
-    .pill{background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3; border-radius:999px; padding:.25rem .6rem; font-weight:600}
-    .status{ text-align:center; margin-top:1rem; color:#666; font-size:.95rem }
-  </style>
+        .logo h1 {
+            font-size: 1.5rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .create-room {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .create-room input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .create-room input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .room-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .room-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border: 1px solid #e1e5e9;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+            transition: background 0.3s;
+        }
+
+        .room-item:hover {
+            background: #f8f9fa;
+        }
+
+        .room-info h3 {
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+
+        .room-info p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .join-btn {
+            background: #27ae60;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .join-btn:hover {
+            background: #219a52;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 2rem;
+        }
+
+        .error {
+            color: #e74c3c;
+            background: #fdf2f2;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                margin: 1rem auto;
+                padding: 0 1rem;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+
+            .create-room {
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="lobby-card">
-    <div class="logo" aria-hidden="true">HPH Meeting</div>
-    <div class="subtitle">Sảnh — Tạo phòng mới hoặc tham gia phòng có sẵn</div>
-
-    <div class="bar">
-      <span class="me" id="me">Đang đăng nhập…</span>
-      <button class="btn-ghost" id="switchAcc">Đổi tài khoản</button>
+    <div class="header">
+        <div class="logo">
+            <h1>HPH Meeting</h1>
+        </div>
+        <div class="user-info">
+            <span id="username"></span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
     </div>
 
-    <div class="grid">
-      <!-- Tạo phòng -->
-      <section class="panel">
-        <h3>Tạo phòng mới</h3>
-        <form id="create-room-form" class="form" autocomplete="off">
-          <input id="create-room-input" class="input" placeholder="Nhập tên phòng" />
-          <button class="btn-primary" type="submit" id="createBtn">Tạo & vào</button>
-        </form>
-        <div id="createErr" class="error" role="alert"></div>
-      </section>
+    <div class="container">
+        <div class="card">
+            <h2>Create Room</h2>
+            <div class="error" id="errorMsg"></div>
+            <div class="create-room">
+                <input type="text" id="roomName" placeholder="Enter room name..." maxlength="50">
+                <button class="btn" onclick="createRoom()" id="createBtn">Create</button>
+            </div>
+            <p style="color: #666; font-size: 0.9rem;">
+                Create a new meeting room and invite others to join.
+            </p>
+        </div>
 
-      <!-- Danh sách phòng -->
-      <section class="panel">
-        <h3>Phòng đang có</h3>
-        <ul id="room-list" class="rooms" aria-live="polite"></ul>
-      </section>
+        <div class="card">
+            <h2>Available Rooms</h2>
+            <div class="room-list" id="roomList">
+                <div class="empty-state">
+                    <p>Loading rooms...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="status" id="status">Đang kết nối tới gateway…</div>
-  </div>
+    <script src="common.js"></script>
+    <script>
+        let rooms = [];
 
-  <script type="module">
-    import { ensureCredsOrRedirect, connectAndLogin, setRoom } from './common.js';
+        // Check authentication
+        const username = sessionStorage.getItem('username');
+        if (!username) {
+            window.location.href = 'login.html';
+        }
 
-    // --- DOM helpers ---
-    const $ = (s)=>document.querySelector(s);
-    const statusEl = $('#status');
-    const createErr = $('#createErr');
-    function setStatus(t){ statusEl.textContent = t; }
-    function showErr(t){ createErr.textContent = t; createErr.style.display='block'; }
-    function hideErr(){ createErr.style.display='none'; }
+        document.getElementById('username').textContent = username;
 
-    // --- State ---
-    const creds = ensureCredsOrRedirect(); if(!creds) throw new Error('No creds');
-    $('#me').textContent = `${creds.username} (${creds.email})`;
+        // Initialize
+        async function init() {
+            try {
+                await connectWebSocket();
+                await loadRooms();
+                
+                // Refresh rooms every 5 seconds
+                setInterval(loadRooms, 5000);
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showError('Failed to connect to server');
+            }
+        }
 
-    let ws = null;
-    let pendingRoom = null;
+        async function createRoom() {
+            const roomName = document.getElementById('roomName').value.trim();
+            
+            if (!roomName) {
+                showError('Please enter a room name');
+                return;
+            }
 
-    // --- WS handlers ---
-    function onLoginOk(msg){
-      setStatus('Đã kết nối. Sẵn sàng.');
-      // xin danh sách phòng
-      ws && ws.send(JSON.stringify({ type:'room_list' }));
-    }
+            if (!/^[a-zA-Z0-9_\s-]+$/.test(roomName)) {
+                showError('Room name can only contain letters, numbers, spaces, hyphens, and underscores');
+                return;
+            }
 
-    function renderRoomList(rooms = []){
-      const ul = $('#room-list');
-      ul.innerHTML = '';
-      if(!rooms.length){
-        ul.innerHTML = '<li class="room-row"><em>Chưa có phòng nào</em></li>';
-        return;
-      }
-      rooms.forEach((r)=>{
-        const li = document.createElement('li');
-        li.className = 'room-row';
-        li.innerHTML = `
-          <div><strong>${r.room}</strong> <span class="pill">${r.count} người</span></div>
-          <button class="btn-ghost">Tham gia</button>
-        `;
-        li.querySelector('button').addEventListener('click', ()=> joinAndGo(r.room));
-        ul.append(li);
-      });
-    }
+            const createBtn = document.getElementById('createBtn');
+            createBtn.disabled = true;
+            createBtn.textContent = 'Creating...';
 
-    function onMessage(msg){
-      switch(msg.type){
-        case 'room_list':
-          renderRoomList(msg.rooms || []);
-          break;
-        case 'create_room':
-          // một số server gửi event này; để đó và chờ join ack
-          break;
-        case 'join_room':
-          if(msg.room){
-            setRoom(msg.room);
-            location.href = 'room.html';
-          }
-          break;
-        case 'user_joined':
-        case 'user_left':
-          // refresh list nhẹ
-          ws && ws.send(JSON.stringify({ type:'room_list' }));
-          break;
-      }
-    }
+            try {
+                const response = await sendMessage({
+                    type: 'create_room',
+                    payload: { room: roomName }
+                });
 
-    function onClose(){
-      setStatus('Mất kết nối. Đang chờ reconnect…');
-    }
+                if (response.ok) {
+                    // Join the room immediately
+                    sessionStorage.setItem('currentRoom', roomName);
+                    window.location.href = `room.html?room=${encodeURIComponent(roomName)}`;
+                } else {
+                    showError(response.error || 'Failed to create room');
+                }
+            } catch (error) {
+                console.error('Create room error:', error);
+                showError('Failed to create room');
+            } finally {
+                createBtn.disabled = false;
+                createBtn.textContent = 'Create';
+            }
+        }
 
-    ws = connectAndLogin(creds, { onLoginOk, onMessage, onClose });
+        async function joinRoom(roomName) {
+            try {
+                const response = await sendMessage({
+                    type: 'join_room',
+                    payload: { room: roomName }
+                });
 
-    // --- Actions ---
-    function joinAndGo(roomName){
-      if(!roomName) return;
-      hideErr();
-      pendingRoom = roomName;
-      ws && ws.send(JSON.stringify({ type:'join_room', room: roomName }));
-      // Fallback: nếu server không trả join_room kịp, chủ động chuyển sau 400ms
-      setTimeout(()=>{ if(pendingRoom){ setRoom(pendingRoom); location.href='room.html'; } }, 400);
-    }
+                if (response.ok || !response.hasOwnProperty('ok')) {
+                    sessionStorage.setItem('currentRoom', roomName);
+                    window.location.href = `room.html?room=${encodeURIComponent(roomName)}`;
+                } else {
+                    showError(response.error || 'Failed to join room');
+                }
+            } catch (error) {
+                console.error('Join room error:', error);
+                showError('Failed to join room');
+            }
+        }
 
-    $('#create-room-form').addEventListener('submit', (e)=>{
-      e.preventDefault();
-      const r = $('#create-room-input').value.trim();
-      if(!r) return showErr('Vui lòng nhập tên phòng');
-      hideErr();
-      // tạo rồi vào thẳng
-      ws && ws.send(JSON.stringify({ type:'create_room', room: r }));
-      joinAndGo(r);
-      $('#create-room-input').value = '';
-    });
+        async function loadRooms() {
+            try {
+                const response = await sendMessage({
+                    type: 'list_rooms',
+                    payload: {}
+                });
 
-    $('#switchAcc').addEventListener('click', ()=>{
-      sessionStorage.clear();
-      location.href = 'login.html';
-    });
-  </script>
+                if (response.ok && response.rooms) {
+                    rooms = response.rooms;
+                    renderRooms();
+                }
+            } catch (error) {
+                console.error('Load rooms error:', error);
+            }
+        }
+
+        function renderRooms() {
+            const roomList = document.getElementById('roomList');
+            
+            if (rooms.length === 0) {
+                roomList.innerHTML = `
+                    <div class="empty-state">
+                        <p>No active rooms. Create one to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            roomList.innerHTML = rooms.map(room => `
+                <div class="room-item">
+                    <div class="room-info">
+                        <h3>${escapeHtml(room.name)}</h3>
+                        <p>${room.users} participant${room.users !== 1 ? 's' : ''}</p>
+                    </div>
+                    <button class="btn join-btn" onclick="joinRoom('${escapeHtml(room.name)}')">
+                        Join
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            setTimeout(() => {
+                errorMsg.style.display = 'none';
+            }, 5000);
+        }
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Handle Enter key in room name input
+        document.getElementById('roomName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                createRoom();
+            }
+        });
+
+        // Initialize when page loads
+        init();
+    </script>
 </body>
 </html>

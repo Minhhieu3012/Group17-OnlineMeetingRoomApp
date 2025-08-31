@@ -9,18 +9,18 @@ def create_room(room: str):
 
 def join_room(username: str, room: str, clients: Dict):
     """Thêm user vào phòng"""
-    create_room(room) # đảm bảo phòng tồn tại 
+    create_room(room)
     rooms[room].add(username)
-    clients[username].room = room # cập nhật thông tin phòng trong client object 
+    clients[username].room = room
 
 def leave_room(username: str, clients: Dict):
     """User rời khỏi phòng hiện tại"""
-    room = clients[username].room # lấy phòng hiện tại của user
+    room = clients[username].room
     if room and room in rooms:
-        rooms[room].discard(username) # xóa username khỏi set 
-        if not rooms[room]: # kiểm tra phòng còn trống không
-            del rooms[room] # xóa để tiết kiệm memory 
-    clients[username].room = None # reset room info của client
+        rooms[room].discard(username)
+        if not rooms[room]:
+            del rooms[room]
+    clients[username].room = None
 
 def get_user_room(username: str, clients: Dict) -> Optional[str]:
     """Lấy phòng hiện tại của user"""
@@ -28,7 +28,7 @@ def get_user_room(username: str, clients: Dict) -> Optional[str]:
 
 def list_rooms():
     """Danh sách tất cả phòng"""
-    return list(rooms.keys()) # list(): convert set thành list 
+    return list(rooms.keys())
 
 def list_users(room: str):
     """Danh sách user trong một phòng"""

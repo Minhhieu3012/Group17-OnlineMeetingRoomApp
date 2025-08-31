@@ -91,6 +91,3 @@ class StoppableThread(threading.Thread):
 
     def stopped(self) -> bool:
         return self._stop_event.is_set()
-
-
-

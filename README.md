@@ -52,3 +52,66 @@
 - **Client**: gửi/nhận dữ liệu (chat, file, audio, video).  
 - **Multi-room**: nhiều client có thể tham gia các phòng khác nhau đồng thời.  
 - **Web + Gateway (optional)**: web interface cho chat/điều khiển, relay sang server socket thật.   
+
+---
+
+## Security
+- Passwords được hash với PBKDF2-HMAC-SHA256
+- Session keys sử dụng AES-256-GCM encryption
+- Rate limiting cho file transfer và UDP packets
+- Input validation cho tất cả user inputs
+
+---
+
+## Cài đặt
+### 1. Cài đặt dependencies
+\`\`\`bash
+pip install -r requirements.txt
+\`\`\`
+
+### 2. (Tùy chọn) Cài đặt audio/video dependencies
+\`\`\`bash
+# Cho video processing
+pip install opencv-python
+
+# Cho audio processing (cần build tools)
+pip install pyaudio
+\`\`\`
+
+## Sử dụng
+
+### Khởi động toàn bộ hệ thống
+\`\`\`bash
+python main.py
+\`\`\`
+
+### Khởi động từng component riêng lẻ
+\`\`\`bash
+# Chỉ TCP server
+python main.py --component tcp
+
+# Chỉ UDP server  
+python main.py --component udp
+
+# Chỉ WebSocket gateway
+python main.py --component gateway
+\`\`\`
+
+### Truy cập web interface
+Mở trình duyệt và truy cập: `http://localhost:8080`
+
+## Tài khoản mặc định
+
+Hệ thống tạo sẵn các tài khoản test:
+- Username: `test`, Password: `123456`
+- Username: `admin`, Password: `admin123`
+
+### Lỗi audio/video
+\`\`\`bash
+# Cài đặt system dependencies cho audio
+sudo apt-get install portaudio19-dev python3-pyaudio
+
+# Cho video
+sudo apt-get install python3-opencv
+\`\`\`
+

@@ -1,97 +1,219 @@
-// Helpers & WS login bridge (dùng chung cho 3 trang)
+// Common utilities for HPH Meeting web interface
 
-export const RE_USERNAME = /^[a-z0-9_]{1,24}$/;
-export const RE_GMAIL = /^[A-Za-z0-9._%+-]+@gmail\.com$/;
+let ws = null
+const messageHandlers = new Map()
+let messageId = 0
+const pendingMessages = new Map()
 
-export const $ = (sel) => document.querySelector(sel);
-export function el(tag, attrs = {}, children = []) {
-  const n = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === 'class') n.className = v;
-    else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
-    else if (v !== undefined && v !== null) n.setAttribute(k, v);
-  }
-  for (const c of children) n.append(c);
-  return n;
-}
+// Validation regex
+const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/
+const GMAIL_REGEX = /^[a-zA-Z0-9._%+]+@gmail.com$/
 
-export function getWsUrl() {
-  return localStorage.getItem('ws_url') || (location.origin.replace(/^http/, 'ws') + '/ws-app');
-}
+// WebSocket connection management
+async function connectWebSocket() {
+  return new Promise((resolve, reject) => {
+    const wsUrl = `ws://${window.location.hostname}:${window.location.port}/ws`
+    ws = new WebSocket(wsUrl)
 
-export function saveCreds({ username, email }) {
-  sessionStorage.setItem('username', username);
-  sessionStorage.setItem('email', email);
-}
-export function readCreds() {
-  return {
-    username: sessionStorage.getItem('username') || '',
-    email: sessionStorage.getItem('email') || '',
-  };
-}
-export function ensureCredsOrRedirect() {
-  const c = readCreds();
-  if (!RE_USERNAME.test(c.username) || !RE_GMAIL.test(c.email)) {
-    location.href = 'login.html';
-    return null;
-  }
-  return c;
-}
-export function setRoom(name){ if (name) sessionStorage.setItem('room', name); }
-export function getRoom(){ return sessionStorage.getItem('room') || ''; }
+    ws.onopen = () => resolve()
 
-// WS connect + auto login + callbacks + auto-reconnect
-export function connectAndLogin(creds, handlers = {}) {
-  let retries = 0;
-  const maxDelay = 10000;
-  const url = getWsUrl();
-  let ws = null;
-
-  const connect = () => {
-    ws = new WebSocket(url);
-
-    ws.onopen = () => {
-      retries = 0;
-      ws.send(JSON.stringify({ type: 'login', username: creds.username, email: creds.email }));
-    };
-
-    ws.onmessage = (ev) => {
-      const msg = JSON.parse(ev.data);
-      if (msg.ok === false && msg.type === 'login') {
-        handlers.onLoginError && handlers.onLoginError(msg.error || 'Đăng nhập thất bại');
-        return;
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data)
+        handleMessage(message)
+      } catch (error) {
+        console.error("[v0] Failed to parse message:", error, "Raw data:", event.data)
       }
-      if (msg.type === 'login') { handlers.onLoginOk && handlers.onLoginOk(msg); return; }
-      handlers.onMessage && handlers.onMessage(msg);
-    };
+    }
 
     ws.onclose = () => {
-      const delay = Math.min(1000 * 2 ** retries, maxDelay);
-      setTimeout(connect, delay);
-      retries++;
-      handlers.onClose && handlers.onClose();
-    };
-  };
+      setTimeout(() => {
+        if (ws.readyState === WebSocket.CLOSED) {
+          connectWebSocket().catch(console.error)
+        }
+      }, 3000)
+    }
 
-  connect();
-  return new Proxy({}, {
-    get: (_, prop) => (prop === 'send' ? (data) => ws && ws.readyState === 1 && ws.send(data) : undefined)
-  });
+    ws.onerror = (error) => reject(error)
+
+    setTimeout(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        reject(new Error("Connection timeout"))
+      }
+    }, 10000)
+  })
 }
 
-export function renderRooms(ul, rooms, onJoin) {
-  ul.innerHTML = '';
-  rooms.forEach((r) => {
-    ul.append(
-      el('li', {}, [
-        el('span', { class: 'pill' }, [document.createTextNode(`${r.room} (${r.count})`)]),
-        el('button', { onclick: () => onJoin(r.room) }, ['Tham gia'])
-      ])
-    );
-  });
+// Send message and wait for response
+async function sendMessage(message) {
+  return new Promise((resolve, reject) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      reject(new Error("WebSocket not connected"))
+      return
+    }
+
+    const id = ++messageId
+    message.id = id
+    pendingMessages.set(id, { resolve, reject })
+
+    try {
+      ws.send(JSON.stringify(message))
+    } catch (error) {
+      pendingMessages.delete(id)
+      reject(error)
+      return
+    }
+
+    setTimeout(() => {
+      if (pendingMessages.has(id)) {
+        pendingMessages.delete(id)
+        reject(new Error("Message timeout"))
+      }
+    }, 30000)
+  })
 }
 
-export function renderUsers(ul, users) {
-  ul.innerHTML = '';
-  users.forEach((u) => ul.append(el('li', {}, [document.createTextNode(u.username)])));
+// Handle incoming messages
+function handleMessage(message) {
+  if (message.id && pendingMessages.has(message.id)) {
+    const { resolve } = pendingMessages.get(message.id)
+    pendingMessages.delete(message.id)
+    resolve(message)
+    return
+  }
+
+  // Map các phản hồi không có id về pending promise gần nhất
+  if ((
+    message.type === "login_ok" ||
+    message.type === "register_ok" ||
+    message.type === "gateway_auth_ok" ||
+    message.type === "rooms" ||
+    message.type === "system"
+  ) && pendingMessages.size > 0) {
+    const firstKey = pendingMessages.keys().next().value
+    if (firstKey !== undefined) {
+      const { resolve } = pendingMessages.get(firstKey)
+      pendingMessages.delete(firstKey)
+      resolve(message)
+      return
+    }
+  }
+
+  const handler = messageHandlers.get(message.type)
+  if (handler) {
+    handler(message)
+  } else {
+    console.log("[v0] No handler for message type:", message.type)
+  }
 }
+
+// Register message handler
+function onMessage(type, handler) {
+  messageHandlers.set(type, handler)
+}
+
+function offMessage(type) {
+  messageHandlers.delete(type)
+}
+
+async function testConnection() {
+  try {
+    await connectWebSocket()
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
+function getStoredCredentials() {
+  return {
+    username: sessionStorage.getItem("username"),
+    email: sessionStorage.getItem("email"),
+    token: sessionStorage.getItem("token"),
+    aesKey: sessionStorage.getItem("aes_key"),
+  }
+}
+
+function storeCredentials(username, email, token, aesKey) {
+  sessionStorage.setItem("username", username)
+  sessionStorage.setItem("email", email)
+  if (token) sessionStorage.setItem("token", token)
+  if (aesKey) sessionStorage.setItem("aes_key", aesKey)
+}
+
+function clearCredentials() {
+  sessionStorage.removeItem("username")
+  sessionStorage.removeItem("email")
+  sessionStorage.removeItem("token")
+  sessionStorage.removeItem("aes_key")
+  sessionStorage.removeItem("currentRoom")
+}
+
+function validateUsername(username) {
+  return USERNAME_REGEX.test(username)
+}
+
+function validateEmail(email) {
+  return GMAIL_REGEX.test(email)
+}
+
+function createElement(tag, className, textContent) {
+  const element = document.createElement(tag)
+  if (className) element.className = className
+  if (textContent) element.textContent = textContent
+  return element
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div")
+  div.textContent = text
+  return div.innerHTML
+}
+
+function formatTime(timestamp) {
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+}
+
+function showNotification(message, type = "info") {
+  const notification = createElement("div", `notification notification-${type}`)
+  notification.textContent = message
+
+  Object.assign(notification.style, {
+    position: "fixed",
+    top: "20px",
+    right: "20px",
+    padding: "1rem 1.5rem",
+    borderRadius: "5px",
+    color: "white",
+    fontWeight: "500",
+    zIndex: "10000",
+    maxWidth: "300px",
+    wordWrap: "break-word",
+  })
+
+  const colors = { info: "#3498db", success: "#27ae60", warning: "#f39c12", error: "#e74c3c" }
+  notification.style.backgroundColor = colors[type] || colors.info
+
+  document.body.appendChild(notification)
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification)
+    }
+  }, 5000)
+}
+
+window.connectWebSocket = connectWebSocket
+window.sendMessage = sendMessage
+window.onMessage = onMessage
+window.offMessage = offMessage
+window.testConnection = testConnection
+window.getStoredCredentials = getStoredCredentials
+window.storeCredentials = storeCredentials
+window.clearCredentials = clearCredentials
+window.validateUsername = validateUsername
+window.validateEmail = validateEmail
+window.createElement = createElement
+window.escapeHtml = escapeHtml
+window.formatTime = formatTime
+window.showNotification = showNotification

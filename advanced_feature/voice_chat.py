@@ -6,7 +6,7 @@ import threading
 from typing import Optional
 
 from . import config
-from .ultis import TokenBucket, StoppableThread, setup_logger
+from .utils import TokenBucket, StoppableThread, setup_logger
 
 
 logger = setup_logger("VoiceChatClient")

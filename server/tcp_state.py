@@ -1,5 +1,4 @@
-# define ctdl của server
-from dataclasses import dataclass, field # field: customize behavior cho từng field
+from dataclasses import dataclass, field
 from typing import Dict, Set, Optional  
 import asyncio
 
@@ -7,9 +6,9 @@ import asyncio
 class Client:
     username: str
     writer: asyncio.StreamWriter
-    room: Optional[str] = None # = None là default value - user chưa vào phòng nào 
+    room: Optional[str] = None
     udp_endpoints: dict = field(default_factory=lambda: {"audio": None, "video": None})
 
 # Global state
-clients: Dict[str, Client] = {}      # username -> Client
-rooms: Dict[str, Set[str]] = {}      # room_name -> set of usernames
+clients: Dict[str, Client] = {}
+rooms: Dict[str, Set[str]] = {}

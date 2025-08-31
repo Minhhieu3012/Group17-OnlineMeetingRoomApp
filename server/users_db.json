@@ -1,9 +1,19 @@
 {
   "users": {
     "test": {
-      "salt": "f90d815e0a3e92cb18f718ad45b47989",
-      "hash": "fe0d97a347e711086dd9360e287c203dce1723a46465dd1f67224b50ab4759c7",
-      "created_at": 1756311899
+      "salt": "5b2dffcb259c912fc5911ececbe2e72f44f104f55b37872520bfa76acd73aa46",
+      "hash": "26316f401016fc25798f62d0e286682e669880c9e8f5fb4e697bfb8e43d12f6a",
+      "created_at": 1756615424
+    },
+    "admin": {
+      "salt": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+      "hash": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
+      "created_at": 1756615424
+    },
+    "huy123_": {
+      "salt": "0be6656f6477857d794025b715baca26",
+      "hash": "0b0c694be4f286d516fde575bac522724b7187771a2e196c86ee21d22831ebd4",
+      "created_at": 1756635439
     }
   }
 }
