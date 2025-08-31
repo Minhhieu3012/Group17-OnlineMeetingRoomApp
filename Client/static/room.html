@@ -342,7 +342,8 @@
                         <div class="chat-messages" id="chatMessages"></div>
                         <div class="chat-input">
                             <input type="text" id="messageInput" placeholder="Type a message..." maxlength="500">
-                            <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                            <!-- FIX: gọi đúng hàm sendChatMessage -->
+                            <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
                         </div>
                     </div>
                 </div>
@@ -350,15 +351,9 @@
         </div>
 
         <div class="controls">
-            <button class="control-btn mic" id="micBtn" onclick="toggleMic()" title="Toggle Microphone">
-                🎤
-            </button>
-            <button class="control-btn camera" id="cameraBtn" onclick="toggleCamera()" title="Toggle Camera">
-                📹
-            </button>
-            <button class="control-btn leave" onclick="leaveRoom()" title="Leave Room">
-                📞
-            </button>
+            <button class="control-btn mic" id="micBtn" onclick="toggleMic()" title="Toggle Microphone">🎤</button>
+            <button class="control-btn camera" id="cameraBtn" onclick="toggleCamera()" title="Toggle Camera">📹</button>
+            <button class="control-btn leave" onclick="leaveRoom()" title="Leave Room">📞</button>
         </div>
     </div>
 
@@ -370,46 +365,26 @@
         let isMicMuted = false;
         let isCameraOff = false;
 
-        // Initialize room
         async function initRoom() {
-            // Get room from URL
             const urlParams = new URLSearchParams(window.location.search);
             currentRoom = urlParams.get('room') || sessionStorage.getItem('currentRoom');
-            
-            if (!currentRoom) {
-                window.location.href = 'lobby.html';
-                return;
-            }
+            if (!currentRoom) { window.location.href = 'lobby.html'; return; }
 
-            // Check authentication
             const username = sessionStorage.getItem('username');
-            if (!username) {
-                window.location.href = 'login.html';
-                return;
-            }
+            if (!username) { window.location.href = 'login.html'; return; }
 
             document.getElementById('roomName').textContent = currentRoom;
             document.getElementById('currentUser').textContent = username;
 
             try {
-                // Connect WebSocket
                 await connectWebSocket();
-                
-                // Set up message handlers
                 setupMessageHandlers();
-                
-                // Join room
                 await joinRoom();
-                
-                // Initialize media
                 await initializeMedia();
-                
             } catch (error) {
                 console.error('Room initialization error:', error);
                 showNotification('Failed to join room', 'error');
-                setTimeout(() => {
-                    window.location.href = 'lobby.html';
-                }, 3000);
+                setTimeout(() => { window.location.href = 'lobby.html'; }, 3000);
             }
         }
 
@@ -418,19 +393,28 @@
                 type: 'join_room',
                 payload: { room: currentRoom }
             });
-            
+
             if (!response.ok && response.hasOwnProperty('ok')) {
                 throw new Error(response.error || 'Failed to join room');
             }
+
+            // FIX: thêm cả chính mình vào danh sách
+            const username = sessionStorage.getItem('username');
+            participants.add(username);
+
+            if (response.users) {
+                response.users.forEach(user => {
+                    if (user !== username) {
+                        participants.add(user);
+                    }
+                });
+            }
+            updateParticipantsList();
         }
 
         async function initializeMedia() {
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true
-                });
-                
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('localVideo').srcObject = localStream;
             } catch (error) {
                 console.error('Media access error:', error);
@@ -468,43 +452,33 @@
         function updateParticipantsList() {
             const list = document.getElementById('participantsList');
             const currentUser = sessionStorage.getItem('username');
-            
             list.innerHTML = `
                 <li class="participant-item">
                     <div class="status-indicator"></div>
                     <span>You</span>
-                </li>
-            `;
-            
+                </li>`;
             participants.forEach(participant => {
                 if (participant !== currentUser) {
                     const li = document.createElement('li');
                     li.className = 'participant-item';
-                    li.innerHTML = `
-                        <div class="status-indicator"></div>
-                        <span>${escapeHtml(participant)}</span>
-                    `;
+                    li.innerHTML = `<div class="status-indicator"></div><span>${escapeHtml(participant)}</span>`;
                     list.appendChild(li);
                 }
             });
-            
             document.getElementById('participantCount').textContent = 
-                `${participants.size + 1} participant${participants.size !== 0 ? 's' : ''}`;
+                `${participants.size} participant${participants.size !== 1 ? 's' : ''}`;
         }
 
         function addChatMessage(author, content, timestamp) {
             const messagesContainer = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message';
-            
             messageDiv.innerHTML = `
                 <div class="message-header">
                     <span class="message-author">${escapeHtml(author)}</span>
                     <span class="message-time">${formatTime(timestamp)}</span>
                 </div>
-                <div class="message-content">${escapeHtml(content)}</div>
-            `;
-            
+                <div class="message-content">${escapeHtml(content)}</div>`;
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
@@ -513,13 +487,7 @@
             const messagesContainer = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message';
-            
-            messageDiv.innerHTML = `
-                <div class="message-content" style="color: #999; font-style: italic;">
-                    ${escapeHtml(content)}
-                </div>
-            `;
-            
+            messageDiv.innerHTML = `<div class="message-content" style="color: #999; font-style: italic;">${escapeHtml(content)}</div>`;
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
@@ -527,15 +495,12 @@
         async function sendChatMessage() {
             const input = document.getElementById('messageInput');
             const message = input.value.trim();
-            
             if (!message) return;
-            
+
             try {
-                await sendMessage({
-                    type: 'chat',
-                    payload: { text: message }
-                });
-                
+                await sendMessage({ type: 'chat', payload: { text: message } });
+                // FIX: hiển thị tin nhắn chính mình ngay lập tức
+                addChatMessage(sessionStorage.getItem('username'), message, new Date());
                 input.value = '';
             } catch (error) {
                 console.error('Send message error:', error);
@@ -543,28 +508,24 @@
             }
         }
 
-        function toggleMic() {
+        function toggleMic() { /* giữ nguyên code cũ */ 
             if (!localStream) return;
-            
             const audioTrack = localStream.getAudioTracks()[0];
             if (audioTrack) {
                 audioTrack.enabled = !audioTrack.enabled;
                 isMicMuted = !audioTrack.enabled;
-                
                 const micBtn = document.getElementById('micBtn');
                 micBtn.classList.toggle('muted', isMicMuted);
                 micBtn.textContent = isMicMuted ? '🔇' : '🎤';
             }
         }
 
-        function toggleCamera() {
+        function toggleCamera() { /* giữ nguyên code cũ */ 
             if (!localStream) return;
-            
             const videoTrack = localStream.getVideoTracks()[0];
             if (videoTrack) {
                 videoTrack.enabled = !videoTrack.enabled;
                 isCameraOff = !videoTrack.enabled;
-                
                 const cameraBtn = document.getElementById('cameraBtn');
                 cameraBtn.classList.toggle('off', isCameraOff);
                 cameraBtn.textContent = isCameraOff ? '📷' : '📹';
@@ -572,48 +533,25 @@
         }
 
         function switchTab(tabName) {
-            // Update tab buttons
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
-            
-            // Show/hide tab content
             document.getElementById('participantsTab').classList.toggle('hidden', tabName !== 'participants');
             document.getElementById('chatTab').classList.toggle('hidden', tabName !== 'chat');
         }
 
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('open');
-        }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 
         async function leaveRoom() {
-            try {
-                await sendMessage({
-                    type: 'leave_room',
-                    payload: {}
-                });
-            } catch (error) {
-                console.error('Leave room error:', error);
-            }
-            
-            // Clean up media
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-            
-            // Redirect to lobby
+            try { await sendMessage({ type: 'leave_room', payload: {} }); } 
+            catch (error) { console.error('Leave room error:', error); }
+            if (localStream) { localStream.getTracks().forEach(track => track.stop()); }
             window.location.href = 'lobby.html';
         }
 
-        // Handle Enter key in message input
         document.getElementById('messageInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendChatMessage();
-            }
+            if (e.key === 'Enter') { sendChatMessage(); }
         });
 
-        // Initialize when page loads
         initRoom();
     </script>
 </body>

@@ -1,19 +1,24 @@
 {
   "users": {
-    "test": {
-      "salt": "5b2dffcb259c912fc5911ececbe2e72f44f104f55b37872520bfa76acd73aa46",
-      "hash": "26316f401016fc25798f62d0e286682e669880c9e8f5fb4e697bfb8e43d12f6a",
-      "created_at": 1756615424
-    },
     "admin": {
       "salt": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
       "hash": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
       "created_at": 1756615424
     },
+    "test": {
+      "salt": "65ba3711bd94ca60178ef744d1ad1936",
+      "hash": "9ea1d60450526dde13c801db6822ec15f3789266d24700fa02616872c3689bfd",
+      "created_at": 1756642297
+    },
+    "hieu123_": {
+      "salt": "e629509ba17483a6bff5f0e3fc48e07a",
+      "hash": "773ed1838af21baebed77701e5d1eb8e984bfa9929a531cd10fccde1eb3bace3",
+      "created_at": 1756642308
+    },
     "huy123_": {
-      "salt": "0be6656f6477857d794025b715baca26",
-      "hash": "0b0c694be4f286d516fde575bac522724b7187771a2e196c86ee21d22831ebd4",
-      "created_at": 1756635439
+      "salt": "09c2623406659dd966afcaa7559fba3c",
+      "hash": "5c43d6a29b0d7ff26f750731dfd1133ae95c4c77fe79bc8a41fb9e3f0c2f3057",
+      "created_at": 1756642468
     }
   }
 }

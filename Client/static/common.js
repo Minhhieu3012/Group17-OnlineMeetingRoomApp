@@ -4,6 +4,7 @@ let ws = null
 const messageHandlers = new Map()
 let messageId = 0
 const pendingMessages = new Map()
+let reconnectTimer = null
 
 // Validation regex
 const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/
@@ -15,26 +16,34 @@ async function connectWebSocket() {
     const wsUrl = `ws://${window.location.hostname}:${window.location.port}/ws`
     ws = new WebSocket(wsUrl)
 
-    ws.onopen = () => resolve()
+    ws.onopen = () => {
+      console.log("[WS] Connected:", wsUrl)
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      resolve()
+    }
 
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data)
         handleMessage(message)
       } catch (error) {
-        console.error("[v0] Failed to parse message:", error, "Raw data:", event.data)
+        console.error("[WS] Failed to parse message:", error, "Raw:", event.data)
       }
     }
 
     ws.onclose = () => {
-      setTimeout(() => {
-        if (ws.readyState === WebSocket.CLOSED) {
+      console.warn("[WS] Connection closed, retrying in 3s...")
+      reconnectTimer = setTimeout(() => {
+        if (!ws || ws.readyState === WebSocket.CLOSED) {
           connectWebSocket().catch(console.error)
         }
       }, 3000)
     }
 
-    ws.onerror = (error) => reject(error)
+    ws.onerror = (error) => {
+      console.error("[WS] Error:", error)
+      reject(error)
+    }
 
     setTimeout(() => {
       if (ws.readyState !== WebSocket.OPEN) {
@@ -75,6 +84,7 @@ async function sendMessage(message) {
 
 // Handle incoming messages
 function handleMessage(message) {
+  // Resolve pending promises (id-based)
   if (message.id && pendingMessages.has(message.id)) {
     const { resolve } = pendingMessages.get(message.id)
     pendingMessages.delete(message.id)
@@ -82,14 +92,11 @@ function handleMessage(message) {
     return
   }
 
-  // Map các phản hồi không có id về pending promise gần nhất
-  if ((
-    message.type === "login_ok" ||
-    message.type === "register_ok" ||
-    message.type === "gateway_auth_ok" ||
-    message.type === "rooms" ||
-    message.type === "system"
-  ) && pendingMessages.size > 0) {
+  // Một số loại phản hồi không có id
+  if (
+    ["login_ok", "register_ok", "gateway_auth_ok", "rooms", "system", "join_room_ok"].includes(message.type) &&
+    pendingMessages.size > 0
+  ) {
     const firstKey = pendingMessages.keys().next().value
     if (firstKey !== undefined) {
       const { resolve } = pendingMessages.get(firstKey)
@@ -99,11 +106,12 @@ function handleMessage(message) {
     }
   }
 
+  // Forward cho handler
   const handler = messageHandlers.get(message.type)
   if (handler) {
     handler(message)
   } else {
-    console.log("[v0] No handler for message type:", message.type)
+    console.log("[WS] No handler for type:", message.type, "msg:", message)
   }
 }
 
@@ -125,6 +133,7 @@ async function testConnection() {
   }
 }
 
+// Credentials helpers
 function getStoredCredentials() {
   return {
     username: sessionStorage.getItem("username"),
@@ -149,6 +158,7 @@ function clearCredentials() {
   sessionStorage.removeItem("currentRoom")
 }
 
+// Validators
 function validateUsername(username) {
   return USERNAME_REGEX.test(username)
 }
@@ -157,6 +167,7 @@ function validateEmail(email) {
   return GMAIL_REGEX.test(email)
 }
 
+// DOM helpers
 function createElement(tag, className, textContent) {
   const element = document.createElement(tag)
   if (className) element.className = className
@@ -175,6 +186,7 @@ function formatTime(timestamp) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
 
+// UI: notification
 function showNotification(message, type = "info") {
   const notification = createElement("div", `notification notification-${type}`)
   notification.textContent = message
@@ -184,15 +196,22 @@ function showNotification(message, type = "info") {
     top: "20px",
     right: "20px",
     padding: "1rem 1.5rem",
-    borderRadius: "5px",
+    borderRadius: "6px",
     color: "white",
     fontWeight: "500",
     zIndex: "10000",
-    maxWidth: "300px",
+    maxWidth: "320px",
+    boxShadow: "0 4px 8px rgba(0,0,0,0.25)",
     wordWrap: "break-word",
+    fontSize: "0.9rem",
   })
 
-  const colors = { info: "#3498db", success: "#27ae60", warning: "#f39c12", error: "#e74c3c" }
+  const colors = {
+    info: "#3498db",
+    success: "#27ae60",
+    warning: "#f39c12",
+    error: "#e74c3c",
+  }
   notification.style.backgroundColor = colors[type] || colors.info
 
   document.body.appendChild(notification)
@@ -200,9 +219,10 @@ function showNotification(message, type = "info") {
     if (notification.parentNode) {
       notification.parentNode.removeChild(notification)
     }
-  }, 5000)
+  }, 4000)
 }
 
+// Export
 window.connectWebSocket = connectWebSocket
 window.sendMessage = sendMessage
 window.onMessage = onMessage

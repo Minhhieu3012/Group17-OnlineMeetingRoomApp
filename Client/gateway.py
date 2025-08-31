@@ -1,10 +1,11 @@
 import asyncio
 import json
-import socket
 import webbrowser
+import base64
 from pathlib import Path
 from aiohttp import web, WSMsgType
 import aiohttp_cors
+from server.protocol import send_any, read_any  
 
 class Gateway:
     def __init__(self, tcp_host="127.0.0.1", tcp_port=8888, web_port=8080):
@@ -17,72 +18,75 @@ class Gateway:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
-        # Kết nối tới TCP server
         try:
             tcp_reader, tcp_writer = await asyncio.open_connection(
                 self.tcp_host, self.tcp_port
             )
-            
-            # Send gateway authentication message
-            gateway_auth = {
-                "type": "login",
-                "payload": {
-                    "username": "_gateway_",
-                    "password": "gateway_internal_auth_2024"
-                }
-            }
-            
-            json_data = json.dumps(gateway_auth).encode()
-            tcp_writer.write(len(json_data).to_bytes(4, 'big') + json_data)
-            await tcp_writer.drain()
-            
-            # Wait for authentication response
-            try:
-                length_data = await asyncio.wait_for(tcp_reader.readexactly(4), timeout=5.0)
-                length = int.from_bytes(length_data, 'big')
-                response_data = await asyncio.wait_for(tcp_reader.readexactly(length), timeout=5.0)
-                response = json.loads(response_data.decode())
-                
-                if not response.get("ok", False):
-                    print(f"[Gateway] TCP authentication failed: {response.get('error', 'Unknown error')}")
-                    await ws.close()
-                    tcp_writer.close()
-                    return ws
-                    
-                print("[Gateway] Successfully authenticated with TCP server")
-                
-            except asyncio.TimeoutError:
-                print("[Gateway] TCP authentication timeout")
-                await ws.close()
-                tcp_writer.close()
-                return ws
-            except Exception as e:
-                print(f"[Gateway] TCP authentication error: {e}")
-                await ws.close()
-                tcp_writer.close()
-                return ws
-                
+            print("[Gateway] Connected to TCP server")
         except Exception as e:
             print(f"[Gateway] Cannot connect to TCP server: {e}")
             await ws.close()
             return ws
 
-        # Tạo tasks để pump data bidirectional
-        ws_to_tcp_task = asyncio.create_task(
-            self._pump_ws_to_tcp(ws, tcp_writer)
-        )
-        tcp_to_ws_task = asyncio.create_task(
-            self._pump_tcp_to_ws(tcp_reader, ws)
-        )
+        username = None
+        aes_key = None  # ✅ sẽ lưu key sau khi login_ok
 
-        # Chờ một trong hai tasks kết thúc
+        async def _pump_ws_to_tcp():
+            nonlocal username, aes_key
+            async for msg in ws:
+                if msg.type == WSMsgType.TEXT:
+                    try:
+                        data = json.loads(msg.data)
+
+                        # Nếu là login → gửi nguyên gốc (chưa có AES)
+                        if data.get("type") == "login":
+                            print(f"[DEBUG][Gateway] WS->TCP (login): {data}")
+                            await self._send_tcp(tcp_writer, data, None)
+                            continue
+
+                        # Nếu đã login, chèn username thật
+                        if username:
+                            data["from"] = username
+
+                        print(f"[DEBUG][Gateway] WS->TCP: {data}")
+                        await self._send_tcp(tcp_writer, data, aes_key)
+                    except Exception as e:
+                        print(f"[Gateway] WS->TCP error: {e}")
+                        break
+                elif msg.type == WSMsgType.ERROR:
+                    print(f"[Gateway] WebSocket error: {ws.exception()}")
+                    break
+
+        async def _pump_tcp_to_ws():
+            nonlocal username, aes_key
+            try:
+                while True:
+                    data = await read_any(tcp_reader, aes_key)
+                    if data is None:
+                        break
+
+                    # Nếu login_ok → lưu username và aes_key
+                    if data.get("type") == "login_ok":
+                        username = data.get("username") or data.get("from")
+                        aes_key_b64 = data.get("aes_key_b64")
+                        if aes_key_b64:
+                            aes_key = base64.b64decode(aes_key_b64)
+                        print(f"[Gateway] User logged in as: {username}")
+
+                    print(f"[DEBUG][Gateway] TCP->WS: {data}")
+                    await ws.send_str(json.dumps(data))
+            except Exception as e:
+                print(f"[Gateway] TCP->WS error: {e}")
+
+        ws_to_tcp_task = asyncio.create_task(_pump_ws_to_tcp())
+        tcp_to_ws_task = asyncio.create_task(_pump_tcp_to_ws())
+
         try:
             await asyncio.wait(
                 [ws_to_tcp_task, tcp_to_ws_task],
                 return_when=asyncio.FIRST_COMPLETED
             )
         finally:
-            # Cleanup
             ws_to_tcp_task.cancel()
             tcp_to_ws_task.cancel()
             tcp_writer.close()
@@ -90,47 +94,16 @@ class Gateway:
 
         return ws
 
-    async def _pump_ws_to_tcp(self, ws, tcp_writer):
-        """Pump messages from WebSocket to TCP"""
-        async for msg in ws:
-            if msg.type == WSMsgType.TEXT:
-                try:
-                    data = json.loads(msg.data)
-                    # Send to TCP server with length prefix
-                    json_data = json.dumps(data).encode()
-                    tcp_writer.write(len(json_data).to_bytes(4, 'big') + json_data)
-                    await tcp_writer.drain()
-                except Exception as e:
-                    print(f"[Gateway] WS->TCP error: {e}")
-                    break
-            elif msg.type == WSMsgType.ERROR:
-                print(f"[Gateway] WebSocket error: {ws.exception()}")
-                break
-
-    async def _pump_tcp_to_ws(self, tcp_reader, ws):
-        """Pump messages from TCP to WebSocket"""
-        try:
-            while True:
-                # Read length prefix
-                length_data = await tcp_reader.readexactly(4)
-                length = int.from_bytes(length_data, 'big')
-                
-                # Read JSON data
-                json_data = await tcp_reader.readexactly(length)
-                data = json.loads(json_data.decode())
-                
-                await ws.send_str(json.dumps(data))
-        except Exception as e:
-            print(f"[Gateway] TCP->WS error: {e}")
+    async def _send_tcp(self, tcp_writer, data, aes_key):
+        """Gửi xuống TCP, có thể kèm AES"""
+        await send_any(tcp_writer, data, aes_key)
 
     async def root_handler(self, request):
-        """Redirect root to login page"""
         return web.HTTPFound('/login.html')
 
     async def start(self):
         app = web.Application()
-        
-        # CORS setup
+
         cors = aiohttp_cors.setup(app, defaults={
             "*": aiohttp_cors.ResourceOptions(
                 allow_credentials=True,
@@ -140,54 +113,36 @@ class Gateway:
             )
         })
 
-        # Routes
         app.router.add_get('/ws', self.websocket_handler)
-        
         app.router.add_get('/', self.root_handler)
-        
-        # Static files
+
         if self.static_dir.exists():
             print(f"[Gateway] Serving static files from: {self.static_dir}")
             app.router.add_static('/', self.static_dir, name='static')
-            
-            # List static files for debugging
             static_files = list(self.static_dir.glob('*'))
             print(f"[Gateway] Available static files: {[f.name for f in static_files]}")
         else:
             print(f"[Gateway] Warning: Static directory not found: {self.static_dir}")
-            # Create static directory if it doesn't exist
             self.static_dir.mkdir(exist_ok=True)
             print(f"[Gateway] Created static directory: {self.static_dir}")
-        
-        # Add CORS to all routes
+
         for route in list(app.router.routes()):
             cors.add(route)
 
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, '0.0.0.0', self.web_port)
+        await site.start()
+
+        print(f"[Gateway] WebSocket gateway running on http://localhost:{self.web_port}")
+        print(f"[Gateway] TCP backend: {self.tcp_host}:{self.tcp_port}")
+
         try:
-            # Start server
-            runner = web.AppRunner(app)
-            await runner.setup()
-            site = web.TCPSite(runner, '0.0.0.0', self.web_port)
-            await site.start()
+            webbrowser.open(f"http://localhost:{self.web_port}")
+        except Exception as e:
+            print(f"[Gateway] Could not open browser: {e}")
 
-            print(f"[Gateway] WebSocket gateway running on http://localhost:{self.web_port}")
-            print(f"[Gateway] TCP backend: {self.tcp_host}:{self.tcp_port}")
-            
-            # Auto-open browser
-            try:
-                webbrowser.open(f"http://localhost:{self.web_port}")
-            except Exception as e:
-                print(f"[Gateway] Could not open browser: {e}")
-
-            # Keep running
-            await asyncio.Future()
-        except OSError as e:
-            if e.errno == 10048:  # Windows port already in use
-                print(f"[Gateway] Error: Port {self.web_port} is already in use!")
-                print(f"[Gateway] Please close other instances or use a different port")
-                raise
-            else:
-                raise
+        await asyncio.Future()
 
 if __name__ == "__main__":
     gateway = Gateway()

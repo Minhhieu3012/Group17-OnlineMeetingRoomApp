@@ -1,30 +1,30 @@
 """time: làm việc với timestamp, uuid: tạo id duy nhất cho session token, base64: mã hóa/giải mã dữ liệu"""
-import time, uuid, base64 
+import time, uuid, base64
 from typing import Dict, Optional, Tuple
-from pathlib import Path # xử lý đường dẫn file hiện tại 
+from pathlib import Path
 
-from .utils import ( # các hàm tiện ích tự viết 
+from .utils import (
     hash_password, verify_password, read_json, write_json,
     generate_session_key
 )
 
-USERS_DB = Path(__file__).with_name("users_db.json") # tạo đường dẫn đến file users_db.json cùng thư mục 
+USERS_DB = Path(__file__).with_name("users_db.json")
 
-# Quản lý người dùng 
+# ===============================
+# Quản lý người dùng
+# ===============================
 class UserStore:
     def __init__(self, path: Path = USERS_DB):
-        self.path = path    
+        self.path = path
         self.data = {"users": {}}
-        self.load() # đọc dữ liệu từ file 
+        self.load()
 
     def load(self):
-        self.data = read_json(str(self.path), {"users": {}}) # file kh tồn tại thì dùng default {"users": {}}
+        self.data = read_json(str(self.path), {"users": {}})
 
-    # lưu dữ liệu hiện tại xuống file Json
     def save(self):
         write_json(str(self.path), self.data)
 
-    # kiểm tra username đã tồn tại chưa 
     def exists(self, username: str) -> bool:
         return username in self.data["users"]
 
@@ -47,29 +47,42 @@ class UserStore:
         return verify_password(password, user["salt"], user["hash"])
 
 
-# Khởi tạo store và user mặc định nếu chưa có
+# ===============================
+# Khởi tạo store & user mặc định
+# ===============================
 _store = UserStore()
 if not _store.exists("test"):
-    _store.add_user("test", "123456")  # tài khoản mẫu để chạy thử
+    _store.add_user("test", "123456")  # tài khoản mẫu để test nhanh
 
+
+# ===============================
 # Quản lý phiên (in-memory)
-# sessions: username -> {"token": str, "key": bytes, "created_at": ts, "last_seen": ts}
+# sessions: username -> {"token": str, "key": bytes, ...}
+# ===============================
 _sessions: Dict[str, Dict] = {}
 
-# Wrapped function để xác thực user
-def authenticate_user(username: str, password: str) -> bool:
-    """Xác thực username/password từ file JSON."""
-    return _store.verify(username, password)
 
-def register_user(username: str, password: str) -> bool:
-    """Đăng ký tài khoản mới (nếu muốn)."""
-    return _store.add_user(username, password)
+# ===============================
+# API chính cho TCP server gọi
+# ===============================
+def login_or_register(username: str, password: str) -> Tuple[bool, str]:
+    """
+    Nếu user tồn tại -> xác thực.
+    Nếu chưa tồn tại -> tự động đăng ký.
+    Trả về (ok, message).
+    """
+    if _store.exists(username):
+        if _store.verify(username, password):
+            return True, "Login successful"
+        else:
+            return False, "Invalid credentials"
+    else:
+        _store.add_user(username, password)
+        return True, "User registered automatically"
+
 
 def create_session(username: str) -> Tuple[str, bytes]:
-    """
-    Tạo session mới: sinh token và khóa AES.
-    Trả về (token, aes_key_bytes).
-    """
+    """Tạo session mới: sinh token và khóa AES."""
     token = uuid.uuid4().hex
     key = generate_session_key()
     now = time.time()
@@ -81,16 +94,20 @@ def create_session(username: str) -> Tuple[str, bytes]:
     }
     return token, key
 
+
 def end_session(username: str) -> None:
     _sessions.pop(username, None)
+
 
 def touch_session(username: str) -> None:
     if username in _sessions:
         _sessions[username]["last_seen"] = time.time()
 
+
 def get_session_key(username: str) -> Optional[bytes]:
     sess = _sessions.get(username)
     return sess["key"] if sess else None
+
 
 def verify_token(username: str, token: str) -> bool:
     sess = _sessions.get(username)
