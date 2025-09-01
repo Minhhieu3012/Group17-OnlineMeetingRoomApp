@@ -1,119 +1,170 @@
-from __future__ import annotations
-
 import socket
 import struct
 import threading
-from typing import Optional
-
-from . import config
-from .utils import TokenBucket, StoppableThread, setup_logger
-
-
-logger = setup_logger("VideoCallClient")
-
+import time
+from typing import Optional, Callable
 
 try:
-    import cv2  # type: ignore
-except Exception as e:  # pragma: no cover
-    cv2 = None  # type: ignore
-    logger.warning("OpenCV chưa sẵn sàng: %s", e)
+    import cv2
+    import numpy as np
+except Exception:
+    cv2 = None
+    np = None
+
+from advanced_feature import config
+
+MAGIC = b"HPH1"
+HDR_FMT = "!4sBHHI"  # magic, type, room_len, user_len, seq
+HDR_SIZE = struct.calcsize(HDR_FMT)
+
+MSG_VIDEO = 2
+MSG_JOIN = 10
+MSG_LEAVE = 11
+MSG_KEEPALIVE = 12
+
+MAX_DATAGRAM = 60000  # keep under typical UDP MTU limits
+
+
+def _pack(mtype: int, room: str, user: str, seq: int, payload: bytes) -> bytes:
+    room_b = room.encode(); user_b = user.encode()
+    header = struct.pack(HDR_FMT, MAGIC, mtype, len(room_b), len(user_b), seq)
+    return header + room_b + user_b + payload
+
+
+def _parse(data: bytes):
+    if len(data) < HDR_SIZE:
+        return None
+    magic, mtype, rlen, ulen, seq = struct.unpack(HDR_FMT, data[:HDR_SIZE])
+    if magic != MAGIC:
+        return None
+    off = HDR_SIZE
+    try:
+        room = data[off:off + rlen].decode(); off += rlen
+        user = data[off:off + ulen].decode(); off += ulen
+    except Exception:
+        return None
+    payload = data[off:]
+    return mtype, room, user, seq, payload
 
 
 class VideoCallClient:
-    def __init__(self, server_host: str = config.SERVER_HOST, port: int = config.UDP_PORT_VIDEO) -> None:
-        self.server_host = server_host
+    def __init__(self, host: str, port: int, on_frame: Optional[Callable[[bytes], None]] = None) -> None:
+        if cv2 is None or np is None:
+            raise RuntimeError("OpenCV (opencv-python) is not installed")
+        self.host = host
         self.port = port
-        self.bucket = TokenBucket(config.VIDEO_RATE_LIMIT_BPS, burst=(config.VIDEO_RATE_LIMIT_BPS or 0))
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._send_thread: Optional[StoppableThread] = None
-        self._recv_thread: Optional[StoppableThread] = None
-        self._cap: Optional["cv2.VideoCapture"] = None
+        self.room = "default"
+        self.user = "user"
+        self._alive = False
+        self._seq = 0
+        self._tx: Optional[threading.Thread] = None
+        self._rx: Optional[threading.Thread] = None
+        self._cap = None
+        self._show_window = True
+        self._on_frame = on_frame
 
-    def start(self, room_id: str, username: str, camera_index: int = 0, show_window: bool = True) -> None:
-        if cv2 is None:
-            raise RuntimeError("OpenCV không khả dụng. Vui lòng cài đặt 'opencv-python'.")
-        self._cap = cv2.VideoCapture(camera_index)
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.VIDEO_WIDTH)
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.VIDEO_HEIGHT)
-        self._cap.set(cv2.CAP_PROP_FPS, config.VIDEO_FPS)
-        addr = (self.server_host, self.port)
+    def start(self, room: str, user: str, show_window: bool = True) -> None:
+        self.room = room
+        self.user = user
+        self._show_window = show_window
+        self._alive = True
 
-        def send_loop() -> None:
-            header = f"{room_id}|{username}".encode("utf-8")
-            while not self._send_thread.stopped():  # type: ignore
-                ret, frame = self._cap.read()  # type: ignore
-                if not ret:
-                    continue
-                ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), config.VIDEO_JPEG_QUALITY])
+        self._cap = cv2.VideoCapture(0)
+        if not self._cap or not self._cap.isOpened():
+            raise RuntimeError("Cannot open camera")
+        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
+
+        # JOIN
+        self.sock.sendto(_pack(MSG_JOIN, self.room, self.user, 0, b""), (self.host, self.port))
+
+        self._tx = threading.Thread(target=self._tx_loop, daemon=True)
+        self._rx = threading.Thread(target=self._rx_loop, daemon=True)
+        self._tx.start(); self._rx.start()
+
+    def stop(self) -> None:
+        self._alive = False
+        try:
+            self.sock.sendto(_pack(MSG_LEAVE, self.room, self.user, 0, b""), (self.host, self.port))
+        except Exception:
+            pass
+        time.sleep(0.05)
+        try:
+            if self._cap:
+                self._cap.release()
+            if self._show_window:
+                try:
+                    cv2.destroyAllWindows()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _tx_loop(self) -> None:
+        next_keep = time.time() + 5
+        while self._alive:
+            ok, frame = self._cap.read() if self._cap else (False, None)
+            if not ok:
+                time.sleep(0.02)
+                continue
+            # Resize + JPEG compress to fit UDP
+            frame = cv2.resize(frame, (640, 360))
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 65]
+            ok, buf = cv2.imencode('.jpg', frame, encode_param)
+            if not ok:
+                continue
+            data = buf.tobytes()
+            # If still too big, downscale quality once more
+            if len(data) > MAX_DATAGRAM:
+                encode_param[1] = 55
+                ok, buf = cv2.imencode('.jpg', frame, encode_param)
                 if not ok:
                     continue
                 data = buf.tobytes()
-                self.bucket.consume(len(data))
-                # Fragment if needed
-                max_payload = config.UDP_MAX_PAYLOAD
-                total = len(data)
-                total_frags = (total + max_payload - 1) // max_payload
-                # Frame id can be a simple increasing counter per sender (wrap)
-                # For simplicity we use Python id() over buffer slice, not perfect but okay for demo
-                frame_id = (id(buf) & 0xFFFFFFFF)
-                for frag_idx in range(total_frags):
-                    start = frag_idx * max_payload
-                    end = min(start + max_payload, total)
-                    frag = data[start:end]
-                    # MAGIC + header_len + header + frame_id(uint32) + total_frags(uint16) + frag_idx(uint16) + payload
-                    packet = (
-                        config.MAGIC_VIDEO
-                        + struct.pack("!H", len(header))
-                        + header
-                        + struct.pack("!IHH", frame_id, total_frags, frag_idx)
-                        + frag
-                    )
-                    self.sock.sendto(packet, addr)
+            if len(data) > MAX_DATAGRAM:
+                # Drop this frame
+                continue
+            self._seq = (self._seq + 1) & 0xFFFFFFFF
+            pkt = _pack(MSG_VIDEO, self.room, self.user, self._seq, data)
+            try:
+                self.sock.sendto(pkt, (self.host, self.port))
+            except Exception:
+                pass
+            if self._show_window:
+                try:
+                    cv2.imshow('Local', frame)
+                    cv2.waitKey(1)
+                except Exception:
+                    pass
+            if time.time() >= next_keep:
+                try:
+                    self.sock.sendto(_pack(MSG_KEEPALIVE, self.room, self.user, 0, b""), (self.host, self.port))
+                except Exception:
+                    pass
+                next_keep = time.time() + 5
 
-        def recv_loop() -> None:
-            # Naive: directly display incoming frames; no reassembly buffer for simplicity
-            # If server relays single-fragment frames only, this will show them; for fragmented, a server-side aggregator can re-pack.
-            if not show_window:
-                return
-            while not self._recv_thread.stopped():  # type: ignore
-                pkt, _ = self.sock.recvfrom(65536)
-                if not pkt.startswith(config.MAGIC_VIDEO):
-                    continue
-                hdr_len = struct.unpack("!H", pkt[2:4])[0]
-                payload = pkt[4 + hdr_len + 8 :]  # skip frame_id(4)+total_frags(2)+frag_idx(2)
-                img = cv2.imdecode(
-                    __import__("numpy").frombuffer(payload, dtype=__import__("numpy").uint8),
-                    cv2.IMREAD_COLOR,
-                )
-                if img is None:
-                    continue
-                cv2.imshow("Remote Video", img)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
-
-        self._send_thread = StoppableThread(target=send_loop, daemon=True)
-        self._recv_thread = StoppableThread(target=recv_loop, daemon=True)
-        self._send_thread.start()
-        self._recv_thread.start()
-        logger.info("Video call started.")
-
-    def stop(self) -> None:
-        if self._send_thread:
-            self._send_thread.stop()
-        if self._recv_thread:
-            self._recv_thread.stop()
-        if self._send_thread:
-            self._send_thread.join(timeout=1)
-        if self._recv_thread:
-            self._recv_thread.join(timeout=1)
-        if self._cap:
-            self._cap.release()
-        try:
-            import cv2 as _cv2
-            _cv2.destroyAllWindows()
-        except Exception:
-            pass
-        logger.info("Video call stopped.")
-
-
-
+    def _rx_loop(self) -> None:
+        self.sock.settimeout(1.0)
+        while self._alive:
+            try:
+                data, _ = self.sock.recvfrom(65535)
+            except socket.timeout:
+                continue
+            parsed = _parse(data)
+            if not parsed:
+                continue
+            mtype, room, user, seq, payload = parsed
+            if mtype != MSG_VIDEO or room != self.room or user == self.user:
+                continue
+            try:
+                if self._on_frame:
+                    self._on_frame(payload)
+                if self._show_window:
+                    arr = np.frombuffer(payload, dtype=np.uint8)
+                    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                    if img is not None:
+                        cv2.imshow('Remote', img)
+                        cv2.waitKey(1)
+            except Exception:
+                pass

@@ -1,148 +1,181 @@
 import asyncio
-import json
+import socket
+import struct
+import threading
 import time
-import logging
-from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from typing import Dict, Set, Tuple
+from typing import Dict, Tuple, Set
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("UDPServer")
+from advanced_feature import config
+
+MAGIC = b"HPH1"  # 4 bytes
+# Header: magic(4s) type(B) room_len(H) user_len(H) seq(I)
+HDR_FMT = "!4sBHHI"
+HDR_SIZE = struct.calcsize(HDR_FMT)
+
+# Message types
+MSG_VOICE = 1
+MSG_VIDEO = 2
+MSG_JOIN = 10
+MSG_LEAVE = 11
+MSG_KEEPALIVE = 12
+
+Address = Tuple[str, int]
+
 
 @dataclass
-class ClientInfo:
-    addr: Tuple[str, int]
-    room: str
-    last_seen: float
-    packet_count: int = 0
+class RoomState:
+    users: Dict[Address, str] = field(default_factory=dict)  # addr -> username
+    last_seen: Dict[Address, float] = field(default_factory=dict)
 
-# Global state management
-class UDPServer:
-    def __init__(self, host="0.0.0.0", port=6000, rate_limit=100, timeout=120):
+
+class _UDPWorker:
+    def __init__(self, host: str, port: int, media_type: int) -> None:
         self.host = host
         self.port = port
+        self.media_type = media_type
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((host, port))
+        self.rooms: Dict[str, RoomState] = {}
+        self._alive = False
+        self._thread: threading.Thread | None = None
 
-        # State storage
-        self.clients: Dict[str, ClientInfo] = {}
-        self.rooms: Dict[str, Set[str]] = defaultdict(set)
+    @property
+    def media_name(self) -> str:
+        return "VOICE" if self.media_type == MSG_VOICE else "VIDEO"
 
-        # Rate limiting
-        self.rate_limit = rate_limit
-        self.client_rates: Dict[str, deque] = defaultdict(
-            lambda: deque(maxlen=rate_limit)
-        )
+    def start(self) -> None:
+        self._alive = True
+        self._thread = threading.Thread(target=self._serve, daemon=True)
+        self._thread.start()
+        print(f"[UDP] {self.media_name} server listening on {self.host}:{self.port}")
 
-        # Timeout cleanup
-        self.client_timeout = timeout
-        self.cleanup_interval = 30
-
-        # Statistics
-        self.stats = {"rx": 0, "tx": 0, "errors": 0}
-
-    async def start(self):
-        logger.info(f"Starting UDP server on {self.host}:{self.port}")
-
-        loop = asyncio.get_running_loop()
-
-        transport, protocol = await loop.create_datagram_endpoint(
-            lambda: UDPProtocol(self),
-            local_addr=(self.host, self.port)
-        )
-
-        self.transport = transport
-
-        # Khởi động task dọn dẹp
-        asyncio.create_task(self._cleanup_clients())
-
-        # Giữ server chạy
-        await asyncio.Future()
-
-    async def process_packet(self, data: bytes, addr: Tuple[str, int]):
-        self.stats["rx"] += 1
-
+    def stop(self) -> None:
+        self._alive = False
         try:
-            if b"\n\n" not in data:
-                return
+            self.sock.close()
+        except Exception:
+            pass
 
-            header_bytes, payload = data.split(b"\n\n", 1)
-            header = json.loads(header_bytes.decode())
+    def _parse_packet(self, data: bytes):
+        if len(data) < HDR_SIZE:
+            return None
+        magic, mtype, room_len, user_len, seq = struct.unpack(HDR_FMT, data[:HDR_SIZE])
+        if magic != MAGIC:
+            return None
+        off = HDR_SIZE
+        try:
+            room = data[off:off + room_len].decode("utf-8"); off += room_len
+            user = data[off:off + user_len].decode("utf-8"); off += user_len
+        except Exception:
+            return None
+        payload = data[off:]
+        return mtype, room, user, seq, payload
 
-            username = header.get("from")
-            room = header.get("room", "default")
-
-            if not username:
-                return
-
-            if not self._check_rate_limit(username):
-                return
-
-            self.clients[username] = ClientInfo(
-                addr=addr,
-                room=room,
-                last_seen=time.time(),
-                packet_count=self.clients.get(username, ClientInfo(addr, room, time.time())).packet_count + 1
-            )
-
-            self.rooms[room].add(username)
-
-            await self._broadcast(data, room, username)
-
-        except json.JSONDecodeError:
-            self.stats["errors"] += 1
-
-        except Exception as e:
-            self.stats["errors"] += 1
-            logger.error(f"Error processing packet: {e}")
-
-    def _check_rate_limit(self, username: str) -> bool:
-        now = time.time()
-        q = self.client_rates[username]
-        q.append(now)
-
-        recent_count = sum(
-            1 for t in q
-            if now - t < 1.0
-        )
-
-        return recent_count <= self.rate_limit
-
-    async def _broadcast(self, data: bytes, room: str, sender: str):
-        room_members = self.rooms.get(room, set())
-
-        for user in room_members:
-            if user == sender or user not in self.clients:
+    def _broadcast(self, room: str, payload: bytes, exclude: Address | None = None) -> None:
+        state = self.rooms.get(room)
+        if not state:
+            return
+        for addr in list(state.users.keys()):
+            if exclude and addr == exclude:
                 continue
             try:
-                client_addr = self.clients[user].addr
-                self.transport.sendto(data, client_addr)
-                self.stats["tx"] += 1
+                self.sock.sendto(payload, addr)
+            except Exception:
+                pass
 
-            except Exception as e:
-                logger.warning(f"Send error: {e}")
+    def _serve(self) -> None:
+        self.sock.settimeout(1.0)
+        while self._alive:
+            try:
+                data, addr = self.sock.recvfrom(65535)
+            except socket.timeout:
+                self._gc()
+                continue
+            except OSError:
+                break
 
-    async def _cleanup_clients(self):
-        while True:
-            await asyncio.sleep(self.cleanup_interval)
-            
-            now = time.time()
+            parsed = self._parse_packet(data)
+            if not parsed:
+                continue
+            mtype, room, user, seq, payload = parsed
 
-            inactive = [
-                username
-                for username, client in self.clients.items()
-                if now - client.last_seen > self.client_timeout
-            ]
+            rs = self.rooms.setdefault(room, RoomState())
+            rs.last_seen[addr] = time.time()
 
-            for username in inactive:
-                room = self.clients[username].room
-                self.rooms[room].discard(username)
-                del self.clients[username]
-                logger.info(f"Removed inactive client {username}")
+            if mtype in (MSG_JOIN, MSG_KEEPALIVE):
+                rs.users[addr] = user
+                continue
+            if mtype == MSG_LEAVE:
+                rs.users.pop(addr, None)
+                rs.last_seen.pop(addr, None)
+                continue
 
-# UDP Protocol handler
-class UDPProtocol(asyncio.DatagramProtocol):
-    def __init__(self, server: UDPServer):
-        self.server = server
+            if mtype in (MSG_VOICE, MSG_VIDEO):
+                # forward to peers in same room (except sender)
+                self._broadcast(room, data, exclude=addr)
 
-    def datagram_received(self, data, addr):
-        asyncio.create_task(self.server.process_packet(data, addr))
+    def _gc(self) -> None:
+        now = time.time()
+        for room, rs in list(self.rooms.items()):
+            dead: Set[Address] = set()
+            for addr, ts in list(rs.last_seen.items()):
+                if now - ts > 20:
+                    dead.add(addr)
+            for addr in dead:
+                rs.users.pop(addr, None)
+                rs.last_seen.pop(addr, None)
+            if not rs.users:
+                self.rooms.pop(room, None)
+
+
+class UDPServer:
+    """Run two UDP workers: one for VOICE, one for VIDEO.
+
+    Backwards-compat params:
+      - Some code instantiates UDPServer(host=..., port=PORT). We accept `port` and
+        map it to voice port if explicit voice_port not given.
+    """
+
+    def __init__(self, host: str | None = None,
+                 port: int | None = None,
+                 voice_port: int | None = None,
+                 video_port: int | None = None) -> None:
+        host = host or getattr(config, "SERVER_HOST", "0.0.0.0")
+        # derive ports
+        if voice_port is None:
+            voice_port = port if port is not None else getattr(config, "UDP_PORT_VOICE", 9999)
+        if video_port is None:
+            video_port = getattr(config, "UDP_PORT_VIDEO", 10000)
+        self.voice = _UDPWorker(host, int(voice_port), MSG_VOICE)
+        self.video = _UDPWorker(host, int(video_port), MSG_VIDEO)
+
+    async def start(self) -> None:
+        """Start workers and keep running until cancelled. Compatible with `await udp.start()`.
+        """
+        self.voice.start()
+        self.video.start()
+        try:
+            while True:
+                await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            self.stop()
+
+    def stop(self) -> None:
+        self.voice.stop()
+        self.video.stop()
+
+
+if __name__ == "__main__":
+    # Standalone run for quick test (blocking threads under the hood)
+    srv = UDPServer()
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(srv.start())
+    except KeyboardInterrupt:
+        pass
+    finally:
+        srv.stop()
+        loop.stop()
+        loop.close()

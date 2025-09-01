@@ -1,19 +1,2 @@
-# HPH Meeting System Dependencies
-
-# Core async web framework
-aiohttp>=3.8.0
-aiohttp-cors>=0.7.0
-
-# Cryptography for AES encryption
-cryptography>=3.4.8
-
-# Audio/Video processing (optional - for advanced features)
-# opencv-python>=4.5.0
-# pyaudio>=0.2.11
-
-# Development and testing
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-
-# Utilities
-pathlib2>=2.3.7; python_version < "3.4"
+cryptography>=42.0 numpy>=1.24
+pyaudio>=0.2.13 opencv-python>=4.9.0
