@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HPH Meeting - Room</title>
+    <title>HPH Meeting - Phòng</title>
     <style>
         * {
             margin: 0;
@@ -261,7 +261,7 @@
         }
 
         .control-btn.camera {
-            background: #3498db;
+            background: #0fe272;
             color: white;
         }
 
@@ -270,7 +270,7 @@
         }
 
         .control-btn.leave {
-            background: #e74c3c;
+            background: #0fe272;
             color: white;
         }
 
@@ -303,12 +303,12 @@
     <div class="room-container">
         <div class="header">
             <div class="room-info">
-                <h1 id="roomName">Loading...</h1>
-                <p id="participantCount">0 participants</p>
+                <h1 id="roomName">Đang tải...</h1>
+                <p id="participantCount">Người tham gia</p>
             </div>
             <div class="header-controls">
-                <button class="btn btn-primary" onclick="toggleSidebar()">Chat</button>
-                <button class="btn btn-danger" onclick="leaveRoom()">Leave</button>
+                <button class="btn btn-primary" onclick="toggleSidebar()">Tin nhắn</button>
+                <button class="btn btn-danger" onclick="leaveRoom()">Rời khỏi</button>
             </div>
         </div>
 
@@ -324,8 +324,8 @@
 
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-tabs">
-                    <button class="tab active" onclick="switchTab('participants')">Participants</button>
-                    <button class="tab" onclick="switchTab('chat')">Chat</button>
+                    <button class="tab active" onclick="switchTab('participants')">Người tham gia</button>
+                    <button class="tab" onclick="switchTab('chat')">Tin nhắn</button>
                 </div>
 
                 <div class="tab-content">
@@ -333,7 +333,7 @@
                         <ul class="participants-list" id="participantsList">
                             <li class="participant-item">
                                 <div class="status-indicator"></div>
-                                <span id="currentUser">You</span>
+                                <span id="currentUser">Bạn</span>
                             </li>
                         </ul>
                     </div>
@@ -343,7 +343,7 @@
                         <div class="chat-input">
                             <input type="text" id="messageInput" placeholder="Type a message..." maxlength="500">
                             <!-- FIX: gọi đúng hàm sendChatMessage -->
-                            <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
+                            <button class="btn btn-primary" onclick="sendChatMessage()">Gửi</button>
                         </div>
                     </div>
                 </div>
@@ -351,9 +351,9 @@
         </div>
 
         <div class="controls">
-            <button class="control-btn mic" id="micBtn" onclick="toggleMic()" title="Toggle Microphone">🎤</button>
-            <button class="control-btn camera" id="cameraBtn" onclick="toggleCamera()" title="Toggle Camera">📹</button>
-            <button class="control-btn leave" onclick="leaveRoom()" title="Leave Room">📞</button>
+            <button class="control-btn mic" id="micBtn" onclick="toggleMic()" title="Chuyển đổi micro">🎤</button>
+            <button class="control-btn camera" id="cameraBtn" onclick="toggleCamera()" title="Chuyển đổi camera">📹</button>
+            <button class="control-btn leave" onclick="leaveRoom()" title="Rời phòng">📞</button>
         </div>
     </div>
 

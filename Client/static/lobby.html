@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #cced86 100%);
             min-height: 100vh;
         }
 
@@ -24,7 +24,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            color: white;
+            color: rgb(7, 6, 6);
         }
 
         .logo h1 {
@@ -38,8 +38,8 @@
         }
 
         .logout-btn {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
+            background: rgba(71, 75, 11, 0.889);
+            color: rgb(243, 242, 242);
             border: none;
             padding: 0.5rem 1rem;
             border-radius: 5px;
@@ -48,7 +48,7 @@
         }
 
         .logout-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(13, 17, 4, 0.3);
         }
 
         .container {
@@ -94,7 +94,7 @@
 
         .btn {
             padding: 0.75rem 1.5rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #618512 100%);
             color: white;
             border: none;
             border-radius: 5px;
@@ -192,28 +192,28 @@
         </div>
         <div class="user-info">
             <span id="username"></span>
-            <button class="logout-btn" onclick="logout()">Logout</button>
+            <button class="logout-btn" onclick="logout()">Đăng xuất</button>
         </div>
     </div>
 
     <div class="container">
         <div class="card">
-            <h2>Create Room</h2>
+            <h2>Tạo phòng</h2>
             <div class="error" id="errorMsg"></div>
             <div class="create-room">
                 <input type="text" id="roomName" placeholder="Enter room name..." maxlength="50">
-                <button class="btn" onclick="createRoom()" id="createBtn">Create</button>
+                <button class="btn" onclick="createRoom()" id="createBtn">Tạo</button>
             </div>
             <p style="color: #666; font-size: 0.9rem;">
-                Create a new meeting room and invite others to join.
+                Tạo phòng mới và mời bạn bè của bạn cùng tham gia vào.
             </p>
         </div>
 
         <div class="card">
-            <h2>Available Rooms</h2>
+            <h2>Phòng có sẵn</h2>
             <div class="room-list" id="roomList">
                 <div class="empty-state">
-                    <p>Loading rooms...</p>
+                    <p>Đang tải thêm phòng...</p>
                 </div>
             </div>
         </div>
@@ -325,7 +325,7 @@
             if (rooms.length === 0) {
                 roomList.innerHTML = `
                     <div class="empty-state">
-                        <p>No active rooms. Create one to get started!</p>
+                        <p>Chưa có phòng nào hoạt động. Hãy tạo và bắt đầu nhé!</p>
                     </div>
                 `;
                 return;

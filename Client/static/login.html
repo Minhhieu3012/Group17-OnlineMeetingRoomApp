@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #cced86 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -67,13 +67,13 @@
 
         input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #abd210;
         }
 
         .btn {
             width: 100%;
             padding: 0.75rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #181c0e 100%);
             color: white;
             border: none;
             border-radius: 5px;
@@ -105,52 +105,37 @@
             margin-top: 0.5rem;
             display: none;
         }
-
-        .register-link {
-            text-align: center;
-            margin-top: 1rem;
-            color: #666;
-        }
-
-        .register-link a {
-            color: #667eea;
-            text-decoration: none;
-        }
-
-        .register-link a:hover {
-            text-decoration: underline;
-        }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="logo">
             <h1>HPH Meeting</h1>
-            <p>Connect, Collaborate, Create</p>
+            <p>Đăng nhập dễ dàng, không cần phải đăng ký</p>
         </div>
 
         <form id="loginForm">
             <div class="form-group">
-                <label for="username">Username</label>
+                <label for="username">Tên người dùng</label>
                 <input type="text" id="username" name="username" required 
                        pattern="[a-zA-Z0-9_]+" title="Only letters, numbers, and underscores allowed"
                        autocomplete="username">
             </div>
 
             <div class="form-group">
-                <label for="email">Email (Gmail only)</label>
+                <label for="email">Địa chỉ email</label>
                 <input type="email" id="email" name="email" required 
                        pattern="[a-zA-Z0-9._%+]+@gmail.com" title="Please enter a valid Gmail address"
                        autocomplete="email">
             </div>
 
             <div class="form-group">
-                <label for="password">Password</label>
+                <label for="password">Mật khẩu</label>
                 <input type="password" id="password" name="password" required minlength="6"
                 autocomplete="current-password">
             </div>
 
-            <button type="submit" class="btn" id="loginBtn">Login</button>
+            <button type="submit" class="btn" id="loginBtn">Đăng nhập</button>
             
             <div class="error" id="errorMsg"></div>
             <div class="success" id="successMsg"></div>
