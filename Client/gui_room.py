@@ -45,13 +45,13 @@ class RoomView(ttk.Frame):
 
         ctrls = ttk.Frame(center, style="Panel.TFrame")
         ctrls.pack(fill=tk.X, pady=(8, 0))
-        self.btn_mic = ttk.Button(ctrls, text="🎙  Mic OFF", command=self._toggle_mic)
-        self.btn_cam = ttk.Button(ctrls, text="🎥  Cam OFF", command=self._toggle_cam)
+        self.btn_mic = ttk.Button(ctrls, text="🎙  Bật Mic", command=self._toggle_mic)
+        self.btn_cam = ttk.Button(ctrls, text="🎥  Bật Cam", command=self._toggle_cam)
         self.btn_mic.pack(side=tk.LEFT)
         self.btn_cam.pack(side=tk.LEFT, padx=6)
 
         # Chat
-        right = ttk.Labelframe(body, text="Chat", style="Card.TLabelframe", padding=10)
+        right = ttk.Labelframe(body, text="Tin nhắn", style="Card.TLabelframe", padding=10)
         right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.txt_chat = tk.Text(
             right, height=18, bg="#0f172a", fg="#e5e7eb",
@@ -133,16 +133,16 @@ class RoomView(ttk.Frame):
             self.vclient.cam_visible = self.cam_visible
 
         if self.cam_visible:
-            self.btn_cam.configure(text="🎥  Cam ON", style="Success.TButton")
+            self.btn_cam.configure(text="🎥  Tắt cam", style="Success.TButton")
         else:
             self.canvas.delete("local")
-            self.btn_cam.configure(text="🎥  Cam OFF", style="TButton")
+            self.btn_cam.configure(text="🎥  Bật cam", style="TButton")
 
     # ------------------- Mic toggle -------------------
     def _toggle_mic(self) -> None:
         on = self.app.toggle_mic()
         self.btn_mic.configure(
-            text="🎙  Mic ON" if on else "🎙  Mic OFF",
+            text="🎙  Tắt mic" if on else "🎙  Bật mic",
             style="Success.TButton" if on else "TButton"
         )
 
@@ -165,7 +165,7 @@ class RoomView(ttk.Frame):
         self.lst_users.insert(tk.END, who)
         self._count += 1
         self.lbl_title.configure(text=self._title_text())
-        self.append_chat(f"* {who} joined *")
+        self.append_chat(f"* {who} đã tham gia vào phòng *")
 
     def user_left(self, who: str) -> None:
         items = [self.lst_users.get(i) for i in range(self.lst_users.size())]
@@ -176,7 +176,7 @@ class RoomView(ttk.Frame):
                 self.lst_users.insert(tk.END, name)
                 self._count += 1
         self.lbl_title.configure(text=self._title_text())
-        self.append_chat(f"* {who} left *")
+        self.append_chat(f"* {who} đã rời đi *")
         if who in self._remote_frames:
             del self._remote_frames[who]
             self._render_all_remotes()

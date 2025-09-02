@@ -13,8 +13,8 @@ from typing import Optional
 
 PALETTE = {
     "muted": "#9ca3af",
-    "success": "#10b981",
-    "danger": "#ef4444",
+    "success": "#16eea6",
+    "danger": "#cb1010",
 }
 FONT_TITLE = ("Segoe UI", 20, "bold")
 FONT_SMALL = ("Segoe UI", 10)
@@ -91,19 +91,17 @@ class LoginView(ttk.Frame):
             lbl.image = logo
             lbl.pack(side=tk.LEFT, padx=(0, 16))
         ttk.Label(top, text="HPH Meeting", font=FONT_TITLE).pack(side=tk.LEFT)
-        ttk.Label(card, text="Đăng nhập để tiếp tục", style="Muted.TLabel").pack(anchor=tk.W, pady=(6, 12))
+        ttk.Label(card, text="Đăng nhập nhanh gọn, không cần phải đăng ký", style="Muted.TLabel").pack(anchor=tk.W, pady=(6, 12))
 
-        self.btn_ok = ttk.Button(card, text="Tiếp tục", style="Primary.TButton", command=self._submit)
+        self.btn_ok = ttk.Button(card, text="Đăng nhập", style="Primary.TButton", command=self._submit)
         # entries
         self.ent_user = ValidEntry(card, "Tên đăng nhập",
                                    pattern=self.USER_PAT,
-                                   placeholder="vd: minhdo",
                                    on_valid_change=self._sync_btn)
         self.ent_user.pack(fill=tk.X)
 
-        self.ent_mail = ValidEntry(card, "Email",
+        self.ent_mail = ValidEntry(card, "Địa chỉ email",
                                    pattern=self.EMAIL_PAT,
-                                   placeholder="name@example.com",
                                    on_valid_change=self._sync_btn)
         self.ent_mail.pack(fill=tk.X, pady=(8, 0))
 

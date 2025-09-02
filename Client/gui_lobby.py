@@ -54,15 +54,15 @@ class LobbyView(ttk.Frame):
         # Create room
         create = ttk.Labelframe(body, text="Tạo phòng mới", style="Card.TLabelframe", padding=16)
         create.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 8))
-        self.ent_room = ValidEntry(create, "Tên phòng", pattern=re.compile(r"^[A-Za-z0-9_.-]{1,32}$"), placeholder="hp-meeting")
+        self.ent_room = ValidEntry(create, "Tên phòng", pattern=re.compile(r"^[A-Za-z0-9_.-]{1,32}$"))
         self.ent_room.pack(fill=tk.X)
-        ttk.Button(create, text="Tạo & Vào phòng", style="Primary.TButton", command=self._create).pack(anchor=tk.E, pady=(12, 0))
+        ttk.Button(create, text="Tạo phòng", style="Primary.TButton", command=self._create).pack(anchor=tk.E, pady=(12, 0))
 
         # Join room
-        join = ttk.Labelframe(body, text="Tham gia phòng", style="Card.TLabelframe", padding=16)
+        join = ttk.Labelframe(body, text="Phòng có sẵn", style="Card.TLabelframe", padding=16)
         join.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8, 0))
 
-        self.lst_rooms = tk.Listbox(join, height=14, bg="#0f172a", fg="#e5e7eb", highlightthickness=0, selectbackground="#6c63ff")
+        self.lst_rooms = tk.Listbox(join, height=14, bg="#0f172a", fg="#e5e7eb", highlightthickness=0, selectbackground="#271ec3")
         self.lst_rooms.pack(fill=tk.BOTH, expand=True)
         self.lst_rooms.bind("<Double-1>", lambda e: self._join_sel())
         self.lst_rooms.bind("<Return>", lambda e: self._join_sel())
@@ -75,7 +75,7 @@ class LobbyView(ttk.Frame):
 
         row = ttk.Frame(join, style="Panel.TFrame")
         row.pack(fill=tk.X, pady=(10, 0))
-        ttk.Button(row, text="Làm mới", command=self.app.refresh_rooms).pack(side=tk.LEFT)
+        ttk.Button(row, text="Làm mới danh sách phòng", command=self.app.refresh_rooms).pack(side=tk.LEFT)
         ttk.Button(row, text="Vào phòng", style="Primary.TButton", command=self._join_action).pack(side=tk.RIGHT)
 
     # lifecycle

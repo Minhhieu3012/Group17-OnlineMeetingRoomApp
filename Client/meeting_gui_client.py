@@ -130,7 +130,7 @@ PALETTE = {
     "panel2": "#0b1220",
     "text": "#e5e7eb",
     "muted": "#9ca3af",
-    "primary": "#6c63ff",
+    "primary": "#2f2a8b",
     "success": "#10b981",
     "danger": "#ef4444",
 }
