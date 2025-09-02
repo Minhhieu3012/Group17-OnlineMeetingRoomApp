@@ -1,11 +1,6 @@
 """
 HPH Meeting – GUI Wrapper (modular views)
 
-Chạy ứng dụng GUI gồm 3 màn (Login → Lobby → Room), import từ:
-- Client.gui_login  (LoginView)
-- Client.gui_lobby  (LobbyView)
-- Client.gui_room   (RoomView)
-
 Chạy bằng:
     python -m Client.meeting_gui_client
 """
@@ -330,7 +325,7 @@ class MeetingApp(tk.Tk):
             return False
         if not self.cam_on:
             self.video = VideoCallClient(config_client.SERVER_HOST, config_client.UDP_PORT_VIDEO)
-            self.video.start(self.room, self.username or "user", show_window=show_window)
+            self.video.start(self.room, self.username or "user")
             self.cam_on = True
         else:
             try:

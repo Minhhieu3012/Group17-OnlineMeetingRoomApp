@@ -2,7 +2,6 @@ import asyncio, base64
 from .protocol import send_msg, read_msg, send_msg_secure, read_msg_secure, read_any, send_any
 from .tcp_state import clients, rooms, Client
 from .routing import send_to_user
-from .file_transfer import handle_file_meta, handle_file_chunk
 from .auth import login_or_register, create_session, end_session, get_session_key, touch_session
 
 
@@ -126,12 +125,6 @@ async def handle_client(reader, writer):
                     "type": "dm", "from": username,
                     "payload": {"text": p["text"]}
                 })
-
-            # ===== FILE TRANSFER =====
-            elif t == "file_meta":
-                await handle_file_meta(username, msg, writer)
-            elif t == "file_chunk":
-                await handle_file_chunk(username, msg, writer)
 
             # ===== UDP REGISTER =====
             elif t == "udp_register":
