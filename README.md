@@ -46,7 +46,6 @@
 - **Server chính**: quản lý user, phòng họp, định tuyến tin nhắn, relay dữ liệu.  
 - **Client**: gửi/nhận dữ liệu (chat, file, audio, video).  
 - **Multi-room**: nhiều client có thể tham gia các phòng khác nhau đồng thời.  
-- **Web + Gateway (optional)**: web interface cho chat/điều khiển, relay sang server socket thật.   
 
 ---
 
@@ -58,7 +57,7 @@
 
 ---
 
-## Cài đặt
+## Cài đặt (Implement)
 ### 1. Cài đặt dependencies
 ```sh
 pip install -r requirements.txt
@@ -76,7 +75,7 @@ pip install pyaudio
 ```
 
 ## Cách chạy nhanh (Quick start)
-### 1. Khởi động server:
+### 1. Khởi động server
 ```sh
 python main.py
 ```
