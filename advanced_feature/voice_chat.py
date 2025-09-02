@@ -9,7 +9,7 @@ try:
 except Exception:
     pyaudio = None
 
-MAGIC = b"HPH1"
+MAGIC = b"HPH1" 
 HDR_FMT = "!4sBHHI"  # magic, type, room_len, user_len, seq
 HDR_SIZE = struct.calcsize(HDR_FMT)
 
