@@ -5,11 +5,6 @@
       "hash": "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
       "created_at": 1756615424
     },
-    "test": {
-      "salt": "65ba3711bd94ca60178ef744d1ad1936",
-      "hash": "9ea1d60450526dde13c801db6822ec15f3789266d24700fa02616872c3689bfd",
-      "created_at": 1756642297
-    },
     "hieu123_": {
       "salt": "e629509ba17483a6bff5f0e3fc48e07a",
       "hash": "773ed1838af21baebed77701e5d1eb8e984bfa9929a531cd10fccde1eb3bace3",
@@ -24,21 +19,6 @@
       "salt": "b496518c5d655ffa83a1be860a058d43",
       "hash": "650813ab1bba61eeeb260d561988c739a698ec3d2d1d5858333f476521762f6d",
       "created_at": 1756724532
-    },
-    "huydeptrai": {
-      "salt": "c6fa085092b696e177be15f583801937",
-      "hash": "0f7fc2f2c77a26069bd2c3358c865c1fcf337464478a3ce44a1f266d12f37e9f",
-      "created_at": 1756743810
-    },
-    "hiu": {
-      "salt": "e4e80c3f0c78d591325dde36c548af47",
-      "hash": "d7dca5aef3ab03bed11e2678025bd974ee43262978affd52a39fb19cd2d359ec",
-      "created_at": 1756743845
-    },
-    "phathehe": {
-      "salt": "48fe631d05434c7834c983556971d841",
-      "hash": "3538fb99a5a8ebbe45f9aea053b9681af04a352ff18b00a2f1f435f401f4f6c7",
-      "created_at": 1756744035
     }
   }
 }

@@ -1,12 +1,10 @@
-"""
-RoomView (updated) – màn hình trong phòng họp: participants, video placeholder, chat, mic/cam.
-- Hiển thị số người tham gia & tên phòng trên header.
-- Enter để gửi chat; Ctrl+M bật/tắt Mic, Ctrl+C bật/tắt Camera.
-- Nút đổi style theo trạng thái.
-"""
 import tkinter as tk
 from tkinter import ttk
 from typing import List
+from PIL import Image, ImageTk
+import cv2
+import numpy as np
+from advanced_feature.video_call import VideoCallClient
 
 FONT_H1 = ("Segoe UI", 16, "bold")
 
@@ -23,7 +21,8 @@ class RoomView(ttk.Frame):
         self.hdr.pack(fill=tk.X, padx=16, pady=10)
         self.lbl_title = ttk.Label(self.hdr, text=self._title_text(), font=FONT_H1)
         self.lbl_title.pack(side=tk.LEFT)
-        ttk.Button(self.hdr, text="Rời phòng", style="Danger.TButton", command=self.app.leave_room).pack(side=tk.RIGHT)
+        ttk.Button(self.hdr, text="Rời phòng", style="Danger.TButton",
+                   command=self.app.leave_room).pack(side=tk.RIGHT)
 
         # Body
         body = ttk.Frame(self, style="TFrame")
@@ -33,16 +32,16 @@ class RoomView(ttk.Frame):
         left = ttk.Labelframe(body, text="Người tham gia", style="Card.TLabelframe", padding=10)
         left.pack(side=tk.LEFT, fill=tk.Y)
         self.lst_users = tk.Listbox(
-            left, height=18, width=26, bg="#0f172a", fg="#e5e7eb", highlightthickness=0, selectbackground="#6c63ff"
+            left, height=18, width=26, bg="#0f172a", fg="#e5e7eb",
+            highlightthickness=0, selectbackground="#6c63ff"
         )
         self.lst_users.pack(fill=tk.Y)
 
-        # Center: video area + mic/cam bar
+        # Center: video area
         center = ttk.Frame(body, style="TFrame")
         center.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
-        self.video_placeholder = tk.Canvas(center, bg="#0b1220", highlightthickness=0)
-        self.video_placeholder.pack(fill=tk.BOTH, expand=True)
-        self.video_placeholder.create_text(12, 12, anchor=tk.NW, fill="#6b7280", font=("Segoe UI", 12), text="Video view (placeholder)")
+        self.canvas = tk.Canvas(center, bg="#0b1220", highlightthickness=0)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
 
         ctrls = ttk.Frame(center, style="Panel.TFrame")
         ctrls.pack(fill=tk.X, pady=(8, 0))
@@ -54,37 +53,89 @@ class RoomView(ttk.Frame):
         # Chat
         right = ttk.Labelframe(body, text="Chat", style="Card.TLabelframe", padding=10)
         right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.txt_chat = tk.Text(right, height=18, bg="#0f172a", fg="#e5e7eb", insertbackground="#e5e7eb", wrap=tk.WORD)
+        self.txt_chat = tk.Text(
+            right, height=18, bg="#0f172a", fg="#e5e7eb",
+            insertbackground="#e5e7eb", wrap=tk.WORD
+        )
         self.txt_chat.pack(fill=tk.BOTH, expand=True)
         self.txt_chat.configure(state=tk.DISABLED)
         row = ttk.Frame(right, style="Panel.TFrame")
         row.pack(fill=tk.X, pady=(6, 0))
         self.ent_chat = ttk.Entry(row)
         self.ent_chat.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(row, text="Gửi", style="Primary.TButton", command=self._send_chat).pack(side=tk.LEFT, padx=6)
+        ttk.Button(row, text="Gửi", style="Primary.TButton",
+                   command=self._send_chat).pack(side=tk.LEFT, padx=6)
 
-        # accelerators
-        self.ent_chat.bind("<Return>", lambda e: self._send_chat())
-        self.bind_all("<Control-m>", lambda e: self._toggle_mic())
-        self.bind_all("<Control-M>", lambda e: self._toggle_mic())
-        self.bind_all("<Control-c>", lambda e: self._toggle_cam())
-        self.bind_all("<Control-C>", lambda e: self._toggle_cam())
+        # Video state
+        self.vclient: VideoCallClient = None
+        self._local_imgtk = None
+        self._remote_imgtk = None
+        self.cam_visible = False
 
-    # Lifecycle
-    def on_show(self):
-        self._redraw_size()
-        self.after(150, self._redraw_size)
+    # ------------------- Video rendering -------------------
+    def _draw_local(self, frame: np.ndarray):
+        if self.canvas.winfo_width() < 50 or self.canvas.winfo_height() < 50:
+            return
+        # PiP local nhỏ
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(rgb).resize((200, 120))
+        self._local_imgtk = ImageTk.PhotoImage(image=img)
+        self.canvas.delete("local")
+        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        self.canvas.create_image(w - 10, h - 10, anchor=tk.SE,
+                                 image=self._local_imgtk, tags="local")
 
-    def _redraw_size(self):
-        self.video_placeholder.delete("size")
-        w = self.video_placeholder.winfo_width() or 640
-        h = self.video_placeholder.winfo_height() or 360
-        self.video_placeholder.create_text(w-10, h-10, anchor=tk.SE, fill="#6b7280", font=("Segoe UI", 10), text=f"{w}×{h}", tags="size")
+    def _draw_remote(self, payload: bytes):
+        arr = np.frombuffer(payload, dtype=np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if img is None:
+            return
+        if self.canvas.winfo_width() < 50 or self.canvas.winfo_height() < 50:
+            return
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        img = Image.fromarray(rgb).resize((w, h))
+        self._remote_imgtk = ImageTk.PhotoImage(image=img)
+        self.canvas.delete("remote")
+        self.canvas.create_image(0, 0, anchor=tk.NW,
+                                 image=self._remote_imgtk, tags="remote")
 
+    # ------------------- Camera toggle -------------------
+    def _toggle_cam(self) -> None:
+        if not self.vclient:
+            self.vclient = VideoCallClient(
+                self.app.client.host if hasattr(self.app, "client") else "127.0.0.1",
+                getattr(self.app.client, "port", 5000),
+                on_remote_frame=self._draw_remote,
+                on_local_frame=self._draw_local
+            )
+            self.vclient.start(self.app.room or "hp-meeting",
+                               self.app.username or "guest")
+
+        # toggle hiển thị/gửi frame
+        self.cam_visible = not self.cam_visible
+        if self.vclient:
+            self.vclient.cam_visible = self.cam_visible
+
+        if self.cam_visible:
+            self.btn_cam.configure(text="🎥  Cam ON", style="Success.TButton")
+        else:
+            # xoá hình đang hiển thị local/remote
+            self.canvas.delete("local")
+            self.btn_cam.configure(text="🎥  Cam OFF", style="TButton")
+
+    # ------------------- Mic toggle -------------------
+    def _toggle_mic(self) -> None:
+        on = self.app.toggle_mic()
+        self.btn_mic.configure(
+            text="🎙  Mic ON" if on else "🎙  Mic OFF",
+            style="Success.TButton" if on else "TButton"
+        )
+
+    # ------------------- Chat & room info -------------------
     def _title_text(self) -> str:
         return f"{self._room_name}  •  {self._count} người"
 
-    # Callbacks from app (network events)
     def set_room(self, name: str) -> None:
         self._room_name = f"Phòng: {name}"
         self.lbl_title.configure(text=self._title_text())
@@ -119,7 +170,6 @@ class RoomView(ttk.Frame):
         self.txt_chat.configure(state=tk.DISABLED)
         self.txt_chat.see(tk.END)
 
-    # Local actions
     def _send_chat(self) -> None:
         text = self.ent_chat.get().strip()
         if not text:
@@ -128,11 +178,3 @@ class RoomView(ttk.Frame):
         if getattr(self.app, "username", None):
             self.append_chat(f"{self.app.username}: {text}")
         self.ent_chat.delete(0, tk.END)
-
-    def _toggle_mic(self) -> None:
-        on = self.app.toggle_mic()
-        self.btn_mic.configure(text="🎙  Mic ON" if on else "🎙  Mic OFF", style="Success.TButton" if on else "TButton")
-
-    def _toggle_cam(self) -> None:
-        on = self.app.toggle_cam(show_window=False)
-        self.btn_cam.configure(text="🎥  Cam ON" if on else "🎥  Cam OFF", style="Success.TButton" if on else "TButton")
