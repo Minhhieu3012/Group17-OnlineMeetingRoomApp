@@ -32,7 +32,7 @@ except Exception:  # fallback khi chạy trực tiếp file
     from gui_room import RoomView
 
 # --- config & crypto helpers ---
-from advanced_feature import config
+from advanced_feature import config_client
 from server.utils import aes_encrypt, aes_decrypt, CRYPTO_AVAILABLE, recvall
 
 # ============================ TCP JSON CLIENT ============================= #
@@ -155,7 +155,7 @@ class MeetingApp(tk.Tk):
         self.configure(bg=PALETTE["bg"])
 
         # Networking
-        self.client = TCPJsonClient(config.SERVER_HOST, config.TCP_PORT)
+        self.client = TCPJsonClient(config_client.SERVER_HOST, config_client.TCP_PORT)
         self.username: Optional[str] = None
         self.room: Optional[str] = None
 
@@ -308,7 +308,7 @@ class MeetingApp(tk.Tk):
             messagebox.showwarning("Audio", "Hãy tham gia phòng trước.")
             return False
         if not self.mic_on:
-            self.voice = VoiceChatClient(config.SERVER_HOST, config.UDP_PORT_VOICE)
+            self.voice = VoiceChatClient(config_client.SERVER_HOST, config_client.UDP_PORT_VOICE)
             self.voice.start(self.room, self.username or "user")
             self.mic_on = True
         else:
@@ -329,7 +329,7 @@ class MeetingApp(tk.Tk):
             messagebox.showwarning("Video", "Hãy tham gia phòng trước.")
             return False
         if not self.cam_on:
-            self.video = VideoCallClient(config.SERVER_HOST, config.UDP_PORT_VIDEO)
+            self.video = VideoCallClient(config_client.SERVER_HOST, config_client.UDP_PORT_VIDEO)
             self.video.start(self.room, self.username or "user", show_window=show_window)
             self.cam_on = True
         else:

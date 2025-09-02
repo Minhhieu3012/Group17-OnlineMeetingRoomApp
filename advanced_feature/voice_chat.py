@@ -9,7 +9,7 @@ try:
 except Exception as e:
     pyaudio = None
 
-from advanced_feature import config
+from advanced_feature import config_client
 
 MAGIC = b"HPH1"
 HDR_FMT = "!4sBHHI"  # magic, type, room_len, user_len, seq

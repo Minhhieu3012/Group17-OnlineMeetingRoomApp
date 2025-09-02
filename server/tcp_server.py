@@ -166,5 +166,5 @@ async def main(host="0.0.0.0", port=8888):
 
 
 if __name__ == "__main__":
-    from advanced_feature import config
-    asyncio.run(main(config.SERVER_HOST, config.TCP_PORT))
+    from advanced_feature import config_client
+    asyncio.run(main(config_client.SERVER_HOST, config_client.TCP_PORT))

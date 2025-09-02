@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, Tuple, Set
 
-from advanced_feature import config
+from advanced_feature import config_client
 
 MAGIC = b"HPH1"  # 4 bytes
 # Header: magic(4s) type(B) room_len(H) user_len(H) seq(I)
@@ -142,12 +142,12 @@ class UDPServer:
                  port: int | None = None,
                  voice_port: int | None = None,
                  video_port: int | None = None) -> None:
-        host = host or getattr(config, "SERVER_HOST", "0.0.0.0")
+        host = host or getattr(config_client, "SERVER_HOST", "0.0.0.0")
         # derive ports
         if voice_port is None:
-            voice_port = port if port is not None else getattr(config, "UDP_PORT_VOICE", 9999)
+            voice_port = port if port is not None else getattr(config_client, "UDP_PORT_VOICE", 9999)
         if video_port is None:
-            video_port = getattr(config, "UDP_PORT_VIDEO", 10000)
+            video_port = getattr(config_client, "UDP_PORT_VIDEO", 10000)
         self.voice = _UDPWorker(host, int(voice_port), MSG_VOICE)
         self.video = _UDPWorker(host, int(video_port), MSG_VIDEO)
 

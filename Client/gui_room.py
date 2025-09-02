@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from typing import List
+from typing import List, Dict
 from PIL import Image, ImageTk
 import cv2
 import numpy as np
@@ -69,14 +69,14 @@ class RoomView(ttk.Frame):
         # Video state
         self.vclient: VideoCallClient = None
         self._local_imgtk = None
-        self._remote_imgtk = None
+        self._remote_imgtk: Dict[str, ImageTk.PhotoImage] = {}
+        self._remote_frames: Dict[str, np.ndarray] = {}
         self.cam_visible = False
 
     # ------------------- Video rendering -------------------
     def _draw_local(self, frame: np.ndarray):
         if self.canvas.winfo_width() < 50 or self.canvas.winfo_height() < 50:
             return
-        # PiP local nhỏ
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(rgb).resize((200, 120))
         self._local_imgtk = ImageTk.PhotoImage(image=img)
@@ -85,20 +85,35 @@ class RoomView(ttk.Frame):
         self.canvas.create_image(w - 10, h - 10, anchor=tk.SE,
                                  image=self._local_imgtk, tags="local")
 
-    def _draw_remote(self, payload: bytes):
+    def _draw_remote(self, user: str, payload: bytes):
         arr = np.frombuffer(payload, dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         if img is None:
             return
-        if self.canvas.winfo_width() < 50 or self.canvas.winfo_height() < 50:
-            return
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
-        img = Image.fromarray(rgb).resize((w, h))
-        self._remote_imgtk = ImageTk.PhotoImage(image=img)
+        self._remote_frames[user] = rgb
+        self._render_all_remotes()
+
+    def _render_all_remotes(self):
         self.canvas.delete("remote")
-        self.canvas.create_image(0, 0, anchor=tk.NW,
-                                 image=self._remote_imgtk, tags="remote")
+        if not self._remote_frames:
+            return
+
+        users = list(self._remote_frames.keys())
+        count = len(users)
+        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+
+        cols = int(np.ceil(np.sqrt(count)))
+        rows = int(np.ceil(count / cols))
+        cell_w, cell_h = w // cols, h // rows
+
+        for idx, (user, frame) in enumerate(self._remote_frames.items()):
+            r, c = divmod(idx, cols)
+            x, y = c * cell_w, r * cell_h
+            img = Image.fromarray(frame).resize((cell_w, cell_h))
+            imgtk = ImageTk.PhotoImage(image=img)
+            self._remote_imgtk[user] = imgtk
+            self.canvas.create_image(x, y, anchor=tk.NW, image=imgtk, tags="remote")
 
     # ------------------- Camera toggle -------------------
     def _toggle_cam(self) -> None:
@@ -120,7 +135,6 @@ class RoomView(ttk.Frame):
         if self.cam_visible:
             self.btn_cam.configure(text="🎥  Cam ON", style="Success.TButton")
         else:
-            # xoá hình đang hiển thị local/remote
             self.canvas.delete("local")
             self.btn_cam.configure(text="🎥  Cam OFF", style="TButton")
 
@@ -163,6 +177,9 @@ class RoomView(ttk.Frame):
                 self._count += 1
         self.lbl_title.configure(text=self._title_text())
         self.append_chat(f"* {who} left *")
+        if who in self._remote_frames:
+            del self._remote_frames[who]
+            self._render_all_remotes()
 
     def append_chat(self, line: str) -> None:
         self.txt_chat.configure(state=tk.NORMAL)

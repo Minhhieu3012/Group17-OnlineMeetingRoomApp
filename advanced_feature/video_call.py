@@ -12,8 +12,6 @@ except Exception:
     cv2 = None
     np = None
 
-from advanced_feature import config
-
 MAGIC = b"HPH1"
 HDR_FMT = "!4sBHHI"
 HDR_SIZE = struct.calcsize(HDR_FMT)
@@ -52,7 +50,7 @@ class VideoCallClient:
     def __init__(self,
                  host: str,
                  port: int,
-                 on_remote_frame: Optional[Callable[[bytes], None]] = None,
+                 on_remote_frame: Optional[Callable[[str, bytes], None]] = None,
                  on_local_frame: Optional[Callable[[np.ndarray], None]] = None) -> None:
         if cv2 is None or np is None:
             raise RuntimeError("OpenCV (opencv-python) is not installed")
@@ -103,25 +101,20 @@ class VideoCallClient:
             self._cap.release()
 
     def _tx_loop(self) -> None:
-        fail_count = 0
         next_keep = time.time() + 5
         while self._alive:
             try:
                 ok, frame = self._cap.read() if self._cap else (False, None)
                 if not ok:
-                    fail_count += 1
-                    if fail_count > 10:
-                        self._cap = self._open_camera()
-                        fail_count = 0
                     time.sleep(0.05)
                     continue
-                fail_count = 0
 
-                # nếu cam OFF → tạo frame đen
+                # nếu cam OFF → không gửi frame, chỉ gửi keepalive
                 if not self.cam_visible:
-                    frame = np.zeros((360, 640, 3), dtype=np.uint8)
-                    cv2.putText(frame, "Camera OFF", (180, 180),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+                    if time.time() >= next_keep:
+                        self.sock.sendto(_pack(MSG_KEEPALIVE, self.room, self.user, 0, b""), (self.host, self.port))
+                        next_keep = time.time() + 5
+                    continue
 
                 # callback local frame
                 if self._on_local_frame:
@@ -168,7 +161,7 @@ class VideoCallClient:
                     continue
 
                 if self._on_remote_frame:
-                    self._on_remote_frame(payload)
+                    self._on_remote_frame(user, payload)
 
             except socket.timeout:
                 continue

@@ -10,7 +10,7 @@ import sys
 from server.tcp_server import main as tcp_main
 from server.udp_server import UDPServer
 from Client.gateway import Gateway
-from advanced_feature import config
+from advanced_feature import config_server
 
 # Setup logging
 logging.basicConfig(
@@ -137,10 +137,10 @@ async def main():
         default="all",
         help="Which component to start (default: all)"
     )
-    parser.add_argument("--host", default=config.SERVER_HOST)
-    parser.add_argument("--tcp-port", type=int, default=config.TCP_PORT)
-    parser.add_argument("--udp-port", type=int, default=config.UDP_PORT)
-    parser.add_argument("--gateway-port", type=int, default=config.GATEWAY_PORT)
+    parser.add_argument("--host", default=config_server.SERVER_HOST)
+    parser.add_argument("--tcp-port", type=int, default=config_server.TCP_PORT)
+    parser.add_argument("--udp-port", type=int, default=config_server.UDP_PORT)
+    parser.add_argument("--gateway-port", type=int, default=config_server.GATEWAY_PORT)
 
     args = parser.parse_args()
 
