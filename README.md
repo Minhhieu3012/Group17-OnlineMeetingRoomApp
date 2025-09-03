@@ -1,69 +1,59 @@
 # 🧑🏻‍💻 HPH Meeting - Ứng dụng Phòng Họp Trực Tuyến
 
 ## 📌 Giới thiệu
-- Đề tài mô phỏng một ứng dụng họp trực tuyến cơ bản, hỗ trợ nhiều tính năng **real-time** như chat, voice chat, video call và quản lý nhiều phòng họp.  
-- Mục tiêu chính là xây dựng **hệ thống client-server sử dụng socket TCP/UDP** để đảm bảo tính trực quan, dễ hiểu, có thể mở rộng và tích hợp bảo mật cơ bản.
+HPH Meeting là ứng dụng họp trực tuyến mô phỏng, hỗ trợ **real-time chat, voice chat, video call và multi-room**.  
+Được xây dựng theo mô hình **Client–Server với TCP & UDP**, sản phẩm hướng đến sự **trực quan, dễ hiểu và có thể mở rộng**.
 
 ---
 
-## 👀 Mục tiêu 
-- Cung cấp nền tảng giao tiếp thời gian thực với hiệu suất cao.
-- Đảm bảo tính bảo mật cho đăng nhập và truyền dữ liệu.
-- Hỗ trợ giao diện người dùng thân thiện (GUI) bằng Tkinter.
+## 👀 Mục tiêu
+- Tạo nền tảng giao tiếp thời gian thực với hiệu suất cao.  
+- Đảm bảo an toàn cơ bản khi đăng nhập và truyền dữ liệu.  
+- Giao diện trực quan, dễ dùng bằng Tkinter.  
 
 ---
 
 ## 🔎 Tính năng
 
-### 1. Chat văn bản (TCP)
-- Sử dụng **TCP socket** để đảm bảo tin nhắn được truyền đầy đủ, không mất mát.
-- Hỗ trợ chat nhóm **broadcast trong phòng** và chat riêng (direct message - DM).
-- Server quản lý danh sách người dùng và phòng, định tuyến tin nhắn chính xác.
+### 💬 Chat văn bản (TCP)
+- Truyền tin cậy với TCP (length-prefixed JSON).  
+- Hỗ trợ **chat nhóm trong phòng** và **chat riêng (DM)**.  
+- Server định tuyến tin nhắn đến đúng người.  
 
-### 2. Voice chat (UDP)
-- Âm thanh được truyền qua **UDP** để giảm độ trễ.  
-- Dùng thư viện **PyAudio** để thu và phát âm thanh theo thời gian thực.  
-- Server relay dữ liệu âm thanh giữa các client trong cùng phòng.
-- Hỗ trợ bật/tắt micro.
+### 🎙️ Voice chat (UDP)
+- Truyền âm thanh **UDP** để giảm độ trễ.  
+- Dùng **PyAudio** (16kHz, mono, PCM).  
+- Hỗ trợ bật/tắt micro.  
 
-### 3. Video call (UDP)
-- Client: sử dụng **OpenCV** để đọc webcam → nén frame (JPEG) → chia nhỏ gói (MTU ~1200B) → gửi UDP.  
-- Server: relay frame theo phòng/người nhận.  
-- Client nhận: ghép gói → giải nén → hiển thị video.  
-- Có thể mất một số gói (UDP) → dùng số thứ tự frame để bỏ qua frame lỗi.  
-- Hỗ trợ bật/tắt camera 
+### 📹 Video call (UDP)
+- Thu webcam → nén JPEG → chia gói (MTU 1200B) → gửi UDP.  
+- Server relay frame theo phòng.  
+- Client ghép gói → giải nén → hiển thị video.  
+- Dùng **sequence number** để bỏ qua frame lỗi.  
+- Hỗ trợ bật/tắt camera.  
 
-### 4. Quản lý nhiều phòng họp (Multi-room)
-- Server quản lý nhiều nhóm kết nối song song.  
-- Server duy trì trạng thái phòng (danh sách người tham gia) và cập nhật real-time.
-- Người dùng có thể tạo phòng mới, tham gia phòng có sẵn hoặc rời phòng.
-- Giao diện sảnh chờ (Lobby) hiển thị danh sách phòng và số người tham gia.
+### 🏠 Multi-room
+- Tạo/join/thoát phòng.  
+- Server duy trì danh sách phòng + thành viên.  
+- Giao diện Lobby hiển thị real-time số người.  
 
-### 5. Cơ chế bảo mật cơ bản
+### 🔐 Bảo mật
 - Đăng nhập với **username + email**.  
-- Có thể tích hợp mã hóa **AES hoặc SSL socket** để bảo mật dữ liệu.  
+- Session key **AES-256-GCM** cho TCP messages.  
+- Input validation (regex).  
+- Rate limiting cho UDP.  
 
-### 6. Giao diện
-- Client Python (CLI hoặc Tkinter).  
-  - Đăng nhập  
-  - Chat, quản lý phòng  
-  - Điều khiển (bật/tắt mic/cam, mời call)  
-- Với voice/video: có thể chạy gateway Python để kết nối **WebSocket ⇄ UDP/TCP**.  
-
----
-
-## 🏗️ Kiến trúc hệ thống
-- **Server chính**: quản lý user, phòng họp, định tuyến tin nhắn, relay dữ liệu.  
-- **Client**: gửi/nhận dữ liệu (chat, file, audio, video).  
-- **Multi-room**: nhiều client có thể tham gia các phòng khác nhau đồng thời.  
+### 🖥️ Giao diện
+- **Tkinter GUI**: Login, Lobby, Room.  
+- Điều khiển mic/cam, chat, tham gia phòng.  
+- Gateway WebSocket ⇄ UDP/TCP (hướng mở rộng).  
 
 ---
 
-## 🛡️ Bảo mật
-- Passwords được hash với PBKDF2-HMAC-SHA256
-- Session keys sử dụng AES-256-GCM encryption
-- Rate limiting cho UDP packets
-- Input validation cho tất cả user inputs
+## 🏗️ Kiến trúc
+- **Server**: quản lý user, phòng, relay dữ liệu.  
+- **Client**: gửi/nhận chat, audio, video.  
+- **Multi-room**: hỗ trợ nhiều phòng song song.  
 
 ---
 
@@ -76,7 +66,10 @@
 -	opencv-python>=4.9.0
 -	(Tùy chọn): Pillow để xử lý hình ảnh mượt hơn trong GUI.
 
+---
+
 ## Cài đặt (Implement)
+
 ### 1. Cài đặt dependencies
 ```sh
 pip install -r requirements.txt
@@ -94,13 +87,16 @@ pip install pyaudio
 
 ```
 
+---
+
 ## Cách chạy nhanh (Quick start)
+
 ### 1. Khởi động server
 ```sh
 python main.py
 ```
 
-### 2. Khởi động phần giao diện (GUI):
+### 2. Khởi động phần giao diện (GUI)
 ```sh
 python -m Client.meeting_gui_client
 ```
