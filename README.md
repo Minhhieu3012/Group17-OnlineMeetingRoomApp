@@ -17,7 +17,7 @@ HPH Meeting là ứng dụng họp trực tuyến mô phỏng, hỗ trợ **real
 
 ### 💬 Chat văn bản (TCP)
 - Truyền tin cậy với TCP (length-prefixed JSON).  
-- Hỗ trợ **chat nhóm trong phòng** và **chat riêng (DM)**.  
+- Hỗ trợ **chat nhóm trong phòng**.  
 - Server định tuyến tin nhắn đến đúng người.  
 
 ### 🎙️ Voice chat (UDP)
